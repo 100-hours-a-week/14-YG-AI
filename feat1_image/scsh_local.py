@@ -1,10 +1,10 @@
 # scsh_local.py
-import os, sys, time, re
+import sys, time, re
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import WebDriverException
 from selenium_stealth import stealth
-
 
 def normalize_url(url: str) -> str:
     # “/vp/”, “/pa/” 등 슬래시 사이의 p를 m으로 바꿔주는 패턴
@@ -19,9 +19,13 @@ def normalize_url(url: str) -> str:
 
     return url
 
-def capture_mobile_screenshot(url: str, output: str = "screenshot_local.png"):
+def capture_mobile_screenshot(url: str):
+    # 저장 경로 설정
+    output = "screenshot_local.png"
+    
+    # 치환 로직 적용
     normalized = normalize_url(url)
-    print(normalized)
+    print(f">>> 시도 URL: {normalized}")
 
     # 크롤링 우회 설정
     opts = Options()
@@ -55,8 +59,14 @@ def capture_mobile_screenshot(url: str, output: str = "screenshot_local.png"):
         fix_hairline=True,
     )
 
-    # 페이지 열기 & 캡처
-    driver.get(normalized)
+    # 페이지 로드 & 예외 처리
+    try:
+        driver.get(normalized)
+    except WebDriverException as e:
+        print(f"[Error] 페이지 로드 실패: {e.msg}")
+        driver.quit()
+        return
+    
     time.sleep(2)  # 렌더링 대기
     driver.save_screenshot(output)
     driver.quit()
