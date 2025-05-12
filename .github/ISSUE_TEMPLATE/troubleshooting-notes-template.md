@@ -1,5 +1,5 @@
 ---
-name: sprint backlog template
+name: trouble shooting template
 about: AI trouble shooting template
 title: ''
 labels: trouble-shooting
