@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# screenshot_mobile.py
-
 import os
 import sys
 import time
