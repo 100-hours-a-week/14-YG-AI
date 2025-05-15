@@ -8,6 +8,10 @@ from urllib3.util.retry import Retry
 from bs4 import BeautifulSoup
 from config import node_log
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 import random
 
 # SSL 인증서 경고 무시
@@ -17,19 +21,11 @@ warnings.filterwarnings("ignore", category=InsecureRequestWarning)
 load_dotenv()
 proxy_list = [
     os.getenv("PROXY1"),
-    os.getenv("PROXY2"),
-    os.getenv("PROXY3"),
-]
-user_agent_list = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
-    "(KHTML, like Gecko) Version/14.0 Safari/605.1.15",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36",
+    os.getenv("PROXY2")
 ]
 proxy = random.choice(proxy_list)
-user_agent = random.choice(user_agent_list)
+user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 " \
+    "(KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
 
 if not proxy:
     raise RuntimeError("PROXY 환경변수 설정 필요")
@@ -66,24 +62,14 @@ def fetch_coupang_tool(state):
     if not url:
         raise ValueError("fetch_coupang_tool: state에 'url'이 없습니다.")
 
-    # 1) 쿠키 확보용 간단한 HEAD 요청 (실패해도 무시)
+    # 전체 HTML 가져오기
     try:
-        session.head("https://www.coupang.com/", timeout=(10, 60), allow_redirects=True)
-    except Exception:
-        node_log("HEAD to homepage failed, continuing without cookies")
-
-    # 2) 전체 HTML 가져오기
-    try:
-        time.sleep(random.uniform(1.0, 3.0))
-        resp = session.get(url, timeout=(10, 60))  # connect 10s, read 60s
+        time.sleep(random.uniform(0.5, 0.8))
+        resp = session.get(url, timeout=(10, 120))  # connect 10s, read 60s
         resp.raise_for_status()
         html = resp.text
     except Exception as e:
         node_log(f"requests failed ({e}), falling back to Selenium")
-        from selenium import webdriver
-        from selenium.webdriver.chrome.options import Options
-        from selenium.webdriver.chrome.service import Service
-        from webdriver_manager.chrome import ChromeDriverManager
 
         opts = Options()
         opts.add_argument("--headless")
@@ -92,7 +78,6 @@ def fetch_coupang_tool(state):
             service=Service(ChromeDriverManager().install()), options=opts
         )
         driver.get(url)
-        time.sleep(5)
         html = driver.page_source
         driver.quit()
 
