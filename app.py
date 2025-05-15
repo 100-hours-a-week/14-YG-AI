@@ -1,11 +1,21 @@
 # app.py
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException, status, Depends
 from pydantic import BaseModel
-from fastapi.responses import JSONResponse
+from typing import Optional
 from typing import Optional
 
 from generate_product_announcement import generate_product_announcement
 
+def verify_access_token_cookie(cookie: Optional[str] = Header(None, alias="cookie")):
+    if not cookie or not cookie.startswith("AccessToken="):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="유효한 AccessToken 쿠키가 필요합니다."
+        )
+    # (선택) 토큰 값을 분리해 반환하고 싶다면:
+    # token = cookie.split(";", 1)[0].removeprefix("AccessToken=")
+    # return token
+    return cookie
 
 # 1) 요청 바디 스키마
 class Generate_product_announcement_Request(BaseModel):
@@ -38,7 +48,7 @@ app = FastAPI(
     "/generation/description",
     response_model=APIResponse,
     summary="상품 상세 설명 생성",
-    description="입력된 URL의 상품 페이지를 스크랩 및 분석하여 상세 설명을 생성합니다.",
+    dependencies=[Depends(verify_access_token_cookie)],
 )
 def generate_description(req: Generate_product_announcement_Request):
     try:
