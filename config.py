@@ -3,41 +3,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── 민감정보 ───────────────────────────
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OLLAMA_HOST = os.getenv("OLLAMA_HOST")
-VERTEX_API_KEY = os.getenv("VERTEX_API_KEY")
-
-# ── 엔진 & 모델 설정 (4단계) ─────────────
-# openai, vertexai, ollama
-# gpt-4o, gemini-1.5-pro
-
-## Router LLM 설정
-LLM_PROVIDER = "vertexai"
-# MODEL_NAME = "gpt-4.1-nano-2025-04-14"
-HALLUCINATION_LLM_PROVIDER = "vertexai"
-HALLUCINATION_MODEL_NAME = "gemini-2.0-flash-001"
-MODEL_NAME = "gemini-1.5-pro-002"
-
-if LLM_PROVIDER == "vertexai" or HALLUCINATION_LLM_PROVIDER == "vertexai":
-    GCP_PROJECT = os.getenv("GCP_PROJECT")
-    GCP_LOCATION = os.getenv("GCP_LOCATION")
-
 ## Summerize LLM 설정
-LLM_PROVIDER_GENERATOR = LLM_PROVIDER
-MODEL_NAME_GENERATOR = MODEL_NAME
+LLM_PROVIDER_GENERATOR = os.getenv("LLM_PROVIDER")
+MODEL_NAME_GENERATOR = os.getenv("MODEL_NAME")
 
 # Hollucination Check LLM 설정
-LLM_PROVIDER_GRADER = HALLUCINATION_LLM_PROVIDER
-MODEL_NAME_GRADER = HALLUCINATION_MODEL_NAME
+LLM_PROVIDER_GRADER = os.getenv("HALLUCINATION_LLM_PROVIDER")
+MODEL_NAME_GRADER = os.getenv("HALLUCINATION_MODEL_NAME")
 
 # Rewite query LLM 설정
-LLM_PROVIDER_REWRITER = LLM_PROVIDER
-MODEL_NAME_REWRITER = MODEL_NAME
+LLM_PROVIDER_REWRITER = os.getenv("LLM_PROVIDER")
+MODEL_NAME_REWRITER = os.getenv("MODEL_NAME")
 
 # ── 일반 설정 ───────────────────────────
 RECURSION_LIMIT = int(os.getenv("RECURSION_LIMIT", 15))
-VERBOSE_NODES = True
+VERBOSE_NODES = bool(os.getenv("VERBOSE_NODES", True))
 
 
 def node_log(name: str):
@@ -49,10 +29,10 @@ def node_log(name: str):
         print(f"==== [{name}] ====")
 
 
-# ── 프롬프트 템플릿 상수 ─────────────────
+# ────────────── 프롬프트 ─────────────────
 RAG_Query = """"({product_name})에서 보여주는 메인 상품의 가격(판매가,정가)과 개수(수량), 무게, 특징과 같은 정보"""
 
-# html crawling domain
+# html logic으로 가는 domain
 html_domain = ["myprotein", "11st", "gsshop", "brand.naver"]
 
 PRODUCT_ANNC_PARCER_PROMPT = """
@@ -80,8 +60,7 @@ PRODUCT_DESC_GEN_PROMPT = """
 - 주어진 내용에 없는 정보는 추측하지 마세요.
 - 문장마다 적절한 이모지를 활용하세요.
 - 판매하기 위한 홍보글 형식으로 만들어주세요.
-- **반드시 2번의 줄넘김을 문장의 끝에 넣어주세요.**
-- **문장을 시작할 때 줄넘김을 하지 마세요.**
+- **반드시 두 줄 공백을 문장의 끝에 넣어주세요.**
 
 
 # context: {context}

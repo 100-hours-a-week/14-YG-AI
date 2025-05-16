@@ -2,15 +2,18 @@ from typing import Any, Dict
 import vertexai
 from vertexai.generative_models import GenerativeModel, GenerationConfig
 from llm.client import LLMClient
-from config import GCP_PROJECT, GCP_LOCATION
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class VertexClient(LLMClient):
     def __init__(self, model_name: str, temperature: float = 0):
         # 1) 프로젝트 및 리전 초기화
         vertexai.init(
-            project=GCP_PROJECT,
-            location=GCP_LOCATION,
+            project=os.getenv("GCP_PROJECT"),
+            location=os.getenv("GCP_LOCATION"),
         )
         # 2) GenerativeModel 로딩
         self.model = GenerativeModel(model_name)
