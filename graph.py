@@ -6,7 +6,7 @@ from node.tool.parse_image_text import parse_image_text
 from node.tool.web_search import web_search_tool
 from node.tool.fetch_coupang import fetch_coupang_tool
 
-from node.route_question import route_question
+from node.route_logic import route_logic
 from node.rag_retrieve import rag_retrieve
 
 # from node.generate import generate
@@ -56,7 +56,7 @@ workflow.add_node("product_title_gen", product_title_gen)  # HTML 문서 가져�
 # 엣지 정의
 workflow.add_conditional_edges(
     START,
-    route_question,
+    route_logic,
     {
         "fetch_html_tool": "fetch_html_tool",
         "fetch_coupang_tool": "fetch_coupang_tool",
@@ -81,15 +81,18 @@ workflow.add_conditional_edges(
 workflow.add_edge("transform_retrieve_query", "rag_retrieve")
 workflow.add_edge("web_search_tool", "product_desc_gen")
 
-workflow.add_conditional_edges(
-    "product_desc_gen",
-    grade_generation_v_documents_and_desc_gen,
-    {
-        "hallucination": "transform_web_search_query",
-        "relevant": "product_title_gen",
-    },
-)
-workflow.add_edge("transform_web_search_query", "web_search_tool")
+# workflow.add_conditional_edges(
+#     "product_desc_gen",
+#     grade_generation_v_documents_and_desc_gen,
+#     {
+#         "hallucination": "transform_web_search_query",
+#         "relevant": "product_title_gen",
+#     },
+# )
+
+workflow.add_edge("product_desc_gen", "product_title_gen")
+
+# workflow.add_edge("transform_web_search_query", "web_search_tool")
 
 workflow.add_edge("product_title_gen", END)
 
