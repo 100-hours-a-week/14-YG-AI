@@ -55,21 +55,8 @@ def node_log(name: str):
 # ── 프롬프트 템플릿 상수 ─────────────────
 RAG_Query = """"({product_name})에서 보여주는 메인 상품의 가격(판매가,정가)과 개수(수량), 무게, 특징과 같은 정보"""
 
-# html로 가져올 도메인 목록
-## coupang, gmarket, brand.naver 불가
+# html crawling domain
 html_domain = ["myprotein", "11st", "gsshop", "brand.naver"]
-ROUTER_PROMPT = f"""
-You are a simple URL router.
-If the URL’s host absolutely contains any of {html_domain}, return exactly:
-    fetch_html_tool
-Or If the URL’s host absolutely contains 'coupang', return exactly:
-    fetch_coupang_tool
-Otherwise, return exactly:
-    parse_image_text
-
-DO NOT USE QUOTE.
-USE TEXT ONLY.
-"""
 
 PRODUCT_ANNC_PARCER_PROMPT = """
 다음은 HTML에서 텍스트만 추출한 상품 페이지 정보입니다.  
