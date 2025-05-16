@@ -1,7 +1,11 @@
-from langchain_teddynote.tools.tavily import TavilySearch
+from tavily import TavilyClient
 from langchain_core.documents import Document
 from typing import Dict
 from config import node_log
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from langchain.schema import Document
 
@@ -18,24 +22,36 @@ def parse_search_dict(rec: dict) -> Document:
 
 def web_search_tool(state: Dict) -> Dict:
     node_log("WEB SEARCH")
-    # 1) 블로그 도메인만 포함하도록 TavilySearch 인스턴스 생성
+
+    TAVILY_API_KEYS = [
+        os.environ.get("TAVILY_API_KEY_tony_taek105"),  
+        os.environ.get("TAVILY_API_KEY_tony_0913"),
+        os.environ.get("TAVILY_API_KEY_milo_1"),
+    ]
+    
     blog_domains = ["blog.naver.com", "blog.daum.net", "tistory.com"]
-    tavily_tool = TavilySearch(include_domains=blog_domains, max_results=3)
+    max_results = 3
 
     query = state["generation"]["product_lower_name"]
     search_query = f"상품 {query} 장점"
-    state["web_search_query"] = search_query
 
-    # 2) 도메인 필터링 옵션을 기본으로 사용
-    search_result = tavily_tool.search(
-        query=search_query,
-        format_output=False,
-    )
+    for api_key in TAVILY_API_KEYS:
+        client = TavilyClient(api_key)
+        try:
+            search_result = client.search(
+                query=search_query,
+                format_output=False,
+                max_results=max_results,
+                include_domains=blog_domains
+            )
 
-    try:
-        state["web_search"] = [parse_search_dict(rec) for rec in search_result]
+            results = search_result.get("results", [])
+            if not results:
+                print(f"[{api_key[:15]}...] 결과 없음")
+                continue
 
-        return state
-    except Exception as e:
-        print(e)
-        return "tavily error"
+            state["web_search"] = [parse_search_dict(rec) for rec in results]
+            return state
+
+        except Exception as e:
+            print(f"예외 발생: {e}")
