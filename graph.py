@@ -81,15 +81,18 @@ workflow.add_conditional_edges(
 workflow.add_edge("transform_retrieve_query", "rag_retrieve")
 workflow.add_edge("web_search_tool", "product_desc_gen")
 
-workflow.add_conditional_edges(
-    "product_desc_gen",
-    grade_generation_v_documents_and_desc_gen,
-    {
-        "hallucination": "transform_web_search_query",
-        "relevant": "product_title_gen",
-    },
-)
-workflow.add_edge("transform_web_search_query", "web_search_tool")
+# workflow.add_conditional_edges(
+#     "product_desc_gen",
+#     grade_generation_v_documents_and_desc_gen,
+#     {
+#         "hallucination": "transform_web_search_query",
+#         "relevant": "product_title_gen",
+#     },
+# )
+
+workflow.add_edge("product_desc_gen", "product_title_gen")
+
+# workflow.add_edge("transform_web_search_query", "web_search_tool")
 
 workflow.add_edge("product_title_gen", END)
 
