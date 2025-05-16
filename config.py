@@ -13,26 +13,23 @@ VERTEX_API_KEY = os.getenv("VERTEX_API_KEY")
 # gpt-4o, gemini-1.5-pro
 
 ## Router LLM 설정
-LLM_PROVIDER = "openai"
-MODEL_NAME = "gpt-4.1-nano-2025-04-14"
-# LLM_PROVIDER = "vertexai"
-# MODEL_NAME = "gemini-2.0-flash-001"
-# MODEL_NAME = "gemini-1.5-pro-002"
+LLM_PROVIDER = "vertexai"
+# MODEL_NAME = "gpt-4.1-nano-2025-04-14"
+HALLUCINATION_LLM_PROVIDER = "vertexai"
+HALLUCINATION_MODEL_NAME = "gemini-2.0-flash-001"
+MODEL_NAME = "gemini-1.5-pro-002"
 
-if LLM_PROVIDER == "vertexai":
+if LLM_PROVIDER == "vertexai" or HALLUCINATION_LLM_PROVIDER == "vertexai":
     GCP_PROJECT = os.getenv("GCP_PROJECT")
     GCP_LOCATION = os.getenv("GCP_LOCATION")
-
-LLM_PROVIDER_ROUTER = LLM_PROVIDER
-MODEL_NAME_ROUTER = MODEL_NAME
 
 ## Summerize LLM 설정
 LLM_PROVIDER_GENERATOR = LLM_PROVIDER
 MODEL_NAME_GENERATOR = MODEL_NAME
 
 # Hollucination Check LLM 설정
-LLM_PROVIDER_GRADER = LLM_PROVIDER
-MODEL_NAME_GRADER = MODEL_NAME
+LLM_PROVIDER_GRADER = HALLUCINATION_LLM_PROVIDER
+MODEL_NAME_GRADER = HALLUCINATION_MODEL_NAME
 
 # Rewite query LLM 설정
 LLM_PROVIDER_REWRITER = LLM_PROVIDER
@@ -83,7 +80,9 @@ PRODUCT_DESC_GEN_PROMPT = """
 - 주어진 내용에 없는 정보는 추측하지 마세요.
 - 문장마다 적절한 이모지를 활용하세요.
 - 판매하기 위한 홍보글 형식으로 만들어주세요.
-- 2번의 줄바꿈을 문장마다 반드시 넣어주세요.
+- **반드시 2번의 줄넘김을 문장의 끝에 넣어주세요.**
+- **문장을 시작할 때 줄넘김을 하지 마세요.**
+
 
 # context: {context}
 
@@ -92,13 +91,15 @@ PRODUCT_DESC_GEN_PROMPT = """
 
 PRODUCT_TITLE_GEN_PROMPT = """
 아래 조건에 맞춰 제품 홍보 제목을 생성해주세요.
+반드시 조건에 맞춰 작성해 주세요.
+반드시 하나의 제목을 작성하고, 제목의 길이를 작성하지 마세요.
 
 제품 정보: {context}
 
 조건
-1. {product_lower_name}을 반드시 포함해 최대 30자 이내로 작성
+1. {product_lower_name}을 포함해 반드시 최대 30자 이내로 작성
 2. 친구에게 말하듯 자연스럽고 친근한 어조로
-3. 인터넷 커뮤니터 언어체(음, 슴, ㅇㅇ, ㅋㅋ 등) 사용
+3. 인터넷 커뮤니터 언어체(음, 슴, ㅇㅇ, ㅋㅋ, ~ 등) 사용
 4. 각 문장에 어울리는 이모지 포함
 5. 클릭을 부르는 흥미 유발 표현 사용
 
