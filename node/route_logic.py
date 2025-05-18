@@ -13,7 +13,6 @@ def route_logic(state: Dict) -> str:
     #         return "fetch_html_tool"
 
     if "coupang.com" in domain:
-        # return "fetch_coupang_tool"
-        return "fetch_html_tool"
+        return "fetch_coupang_tool"
     else:
         return "fetch_html_tool"
