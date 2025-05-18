@@ -7,13 +7,14 @@ from langchain_core.documents import Document
 import requests, logging
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service 
+from selenium.webdriver.chrome.service import Service
 from selenium_stealth import stealth
 from webdriver_manager.chrome import ChromeDriverManager
 from typing import Dict, Any
 from config import node_log
 
 logger = logging.getLogger(__name__)
+
 
 def clean_html(state: Dict[str, Any]) -> Dict[str, Any]:
     # 1) 원본 HTML 가져오기
@@ -62,6 +63,7 @@ def clean_html(state: Dict[str, Any]) -> Dict[str, Any]:
     # 7) pieces를 state["page_meta"]에 담기
     state["page_meta"] = "\n".join(pieces)
 
+
 def is_blocked(content: str) -> bool:
     if not content or len(content) < 200:
         return True
@@ -78,26 +80,12 @@ def fetch_with_selenium(url: str, timeout: int = 15) -> str:
     opts.add_argument("--disable-blink-features=AutomationControlled")
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
-    # opts.add_experimental_option(
-    #     "mobileEmulation",
-    #     {
-    #         "deviceMetrics": {"width": 600, "height": height, "pixelRatio": 2.0},
-    #         "userAgent": (
-    #             "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) "
-    #             "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 "
-    #             "Mobile/15E148 Safari/604.1"
-    #         ),
-    #     },
-    # )
     opts.add_argument("--ignore-certificate-errors")
     opts.set_capability("acceptInsecureCerts", True)
 
     # 드라이버 실행
     service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(
-        service=service,
-        options=opts
-    )
+    driver = webdriver.Chrome(service=service, options=opts)
 
     stealth(
         driver,
@@ -151,7 +139,11 @@ def fetch_html_tool(state: Dict[str, Any]) -> Dict[str, Any]:
         html_str = fetch_with_selenium(url)
 
     if not html_str or is_blocked(html_str):
-        raise RuntimeError(f"fetch_html 실패 (blocked or empty): {url}")
+        # raise RuntimeError(f"fetch_html 실패 (blocked or empty): {url}")
+        # html 가져오기 실패시 이미지 텍스트 파서로 넘기기
+        node_log("FETCH_HTML: BLOCKED OR EMPTY")
+        state["page"] = ""
+        return state
 
     state["page"] = [Document(page_content=html_str, metadata={"source": url})]
 

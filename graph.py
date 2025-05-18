@@ -6,7 +6,9 @@ from node.tool.parse_image_text import parse_image_text
 from node.tool.web_search import web_search_tool
 from node.tool.fetch_coupang import fetch_coupang_tool
 
+
 from node.route_logic import route_logic
+from node.page_data_gate import page_data_gate, page_data_check
 from node.rag_retrieve import rag_retrieve
 
 # from node.generate import generate
@@ -14,10 +16,7 @@ from node.rewrite_retrieve_query import (
     transform_retrieve_query,
     transform_web_search_query,
 )
-from node.groundness_check import (
-    grade_generation_v_documents_and_annc_parser,
-    grade_generation_v_documents_and_desc_gen,
-)
+from node.groundness_check import grade_generation_v_documents_and_annc_parser
 from node.product_annc_parser import product_annc_parser
 from node.product_desc_gen import product_desc_gen
 from node.product_title_gen import product_title_gen
@@ -44,6 +43,7 @@ workflow.add_node("fetch_coupang_tool", fetch_coupang_tool)
 workflow.add_node("parse_image_text", parse_image_text)
 workflow.add_node("web_search_tool", web_search_tool)  # 웹 서칭
 
+workflow.add_node("page_data_gate", page_data_gate)  # 페이지 데이터 게이트
 workflow.add_node("rag_retrieve", rag_retrieve)  # RAG 문서 검색
 
 workflow.add_node("product_annc_parser", product_annc_parser)  # 상품 정보 파싱
@@ -60,14 +60,17 @@ workflow.add_conditional_edges(
     {
         "fetch_html_tool": "fetch_html_tool",
         "fetch_coupang_tool": "fetch_coupang_tool",
-        "parse_image_text": "parse_image_text",
     },
 )
+workflow.add_edge("fetch_coupang_tool", "page_data_gate")
+workflow.add_edge("fetch_html_tool", "page_data_gate")
 
-workflow.add_edge("fetch_html_tool", "rag_retrieve")
-workflow.add_edge("fetch_coupang_tool", "rag_retrieve")
-workflow.add_edge("parse_image_text", "rag_retrieve")
-
+workflow.add_conditional_edges(
+    "page_data_gate",
+    page_data_check,
+    {"parse_image_text": "parse_image_text", "next": "rag_retrieve"},
+)
+workflow.add_edge("parse_image_text", "page_data_gate")
 workflow.add_edge("rag_retrieve", "product_annc_parser")
 
 workflow.add_conditional_edges(
@@ -81,18 +84,7 @@ workflow.add_conditional_edges(
 workflow.add_edge("transform_retrieve_query", "rag_retrieve")
 workflow.add_edge("web_search_tool", "product_desc_gen")
 
-# workflow.add_conditional_edges(
-#     "product_desc_gen",
-#     grade_generation_v_documents_and_desc_gen,
-#     {
-#         "hallucination": "transform_web_search_query",
-#         "relevant": "product_title_gen",
-#     },
-# )
-
 workflow.add_edge("product_desc_gen", "product_title_gen")
-
-# workflow.add_edge("transform_web_search_query", "web_search_tool")
 
 workflow.add_edge("product_title_gen", END)
 
