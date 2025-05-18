@@ -4,16 +4,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 ## Summerize LLM 설정
-LLM_PROVIDER_GENERATOR = os.getenv("LLM_PROVIDER")
-MODEL_NAME_GENERATOR = os.getenv("MODEL_NAME")
+LLM_PROVIDER_GENERATOR = os.getenv("LLM_PROVIDER_GENERATOR", "openai")
+MODEL_NAME_GENERATOR = os.getenv("MODEL_NAME_GENERATOR", "gpt-4o")
 
 # Hollucination Check LLM 설정
-LLM_PROVIDER_GRADER = os.getenv("HALLUCINATION_LLM_PROVIDER")
-MODEL_NAME_GRADER = os.getenv("HALLUCINATION_MODEL_NAME")
+LLM_PROVIDER_GRADER = os.getenv("LLM_PROVIDER_GRADER", "openai")
+MODEL_NAME_GRADER = os.getenv("MODEL_NAME_GRADER", "gpt-4o")
 
 # Rewite query LLM 설정
-LLM_PROVIDER_REWRITER = os.getenv("LLM_PROVIDER")
-MODEL_NAME_REWRITER = os.getenv("MODEL_NAME")
+LLM_PROVIDER_REWRITER = os.getenv("LLM_PROVIDER_REWRITER", "openai")
+MODEL_NAME_REWRITER = os.getenv("MODEL_NAME_REWRITER", "gpt-4o")
 
 # ── 일반 설정 ───────────────────────────
 RECURSION_LIMIT = int(os.getenv("RECURSION_LIMIT", 15))
