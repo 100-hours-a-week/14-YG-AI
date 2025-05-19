@@ -1,5 +1,39 @@
 # 14-YG-AI
 
+### 랭그래프 아키텍처
+```mermaid
+flowchart TD
+subgraph Config[recursion_limit=15]
+    end
+subgraph Router_graph["Routing"]
+    START([URL])
+    START --> route_logic{{route_logic}}
+    route_logic -->|fetch_html_tool| fetch_html_tool[fetch_html_tool]
+    route_logic -->|fetch_coupang_tool| fetch_coupang_tool[fetch_coupang_tool]
+end
+
+subgraph Page_Processing["Page Data Processing"]
+    fetch_html_tool --> page_data_gate[page_data_gate]
+    fetch_coupang_tool --> page_data_gate
+    parse_image_text[parse_image_text] --> page_data_gate
+    page_data_gate -->|need parsing| parse_image_text
+    page_data_gate -->|ready| rag_retrieve[rag_retrieve]
+end
+
+subgraph RAG["RAG + Product Info"]
+    rag_retrieve --> product_annc_parser[LLM: Product Announcement Parser]
+    product_annc_parser -->|hallucination| transform_retrieve_query[rewrite_retrieve_query]
+    product_annc_parser -->|relevant| web_search_tool[web_search_tool]
+    transform_retrieve_query --> rag_retrieve
+end
+
+subgraph Description_Generation["Product Description Pipeline"]
+    web_search_tool --> product_desc_gen[LLM: Product Description Generator]
+    product_desc_gen --> product_title_gen[LLM: Product Title Generator]
+    product_title_gen --> End(Product Information Summary)
+end
+```
+
 <details>
 <summary>사용 방법</summary>
 
@@ -178,6 +212,8 @@ end
 
 </details>
 
+<details><summary>0513 랭그래프 아키텍처</summary>
+	
 ### 0519 랭그래프 아키텍처
 ```mermaid
 flowchart TD
@@ -212,3 +248,5 @@ subgraph Description_Generation["Product Description Pipeline"]
 end
 
 ```
+
+</details>
