@@ -16,21 +16,20 @@ class Topic(BaseModel):
         example="스윗마토 방울토마토(500g x 2팩)",
     )
     product_lower_name: str = Field(
-        description="메인 상품의 명칭과 브랜드와 같은 상품 이름에서 알아야 할 특이사항(무게와 개수가 포함되지 않고, 대중적으로 불리는 이름과 메인 상품의 브랜드와 같은 식별 가능 정보).",
+        description="메인 상품의 명칭과 브랜드와 같이 상품 이름에서 알아야 할 특이사항(무게와 개수가 포함되지 않고, 대중적으로 불리는 이름 및 메인 상품의 브랜드와 같은 식별 가능 정보는 포함).",
         example="스윗마토 방울토마토",
     )
-    total_price: int = Field(description="메인 상품의 가격(원, 달러 등의 화폐 단위가 붙은 숫자)")
+    total_price: int = Field(
+        description="메인 상품의 가격(원, 달러 등의 화폐 단위가 붙은 숫자)"
+    )
     count: int = Field(description="메인 상품의 개수(개수 단위가 붙은 숫자)")
 
 
 def product_annc_parser(state: Dict) -> Dict:
     node_log("PRODUCT ANNOUNCEMENT PARSER")
     docs = state["documents"]
-    
-    context = "\n\n".join(
-        f"<document>{doc.page_content}</document>"
-        for doc in docs
-    )
+
+    context = "\n\n".join(f"<document>{doc.page_content}</document>" for doc in docs)
 
     # JsonOutputParser 설정
     parser = JsonOutputParser(pydantic_object=Topic)

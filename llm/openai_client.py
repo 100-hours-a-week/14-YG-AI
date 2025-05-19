@@ -2,14 +2,17 @@
 
 from langchain_openai import ChatOpenAI
 from llm.client import LLMClient
-from config import OPENAI_API_KEY
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class OpenAIClient(LLMClient):
     def __init__(self, model_name: str, temperature: float = 0):
         # ChatOpenAI 자체가 Runnable 이므로 invoke() 를 직접 씁니다
         self._llm = ChatOpenAI(
-            model=model_name, temperature=temperature, openai_api_key=OPENAI_API_KEY
+            model=model_name, temperature=temperature, openai_api_key=os.getenv("OPENAI_API_KEY")
         )
 
     def chat(self, prompt: str, **kwargs) -> str:
