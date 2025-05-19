@@ -15,20 +15,12 @@ rewrite_prompt = ChatPromptTemplate.from_messages(
     [("system", REWRITE_PROMPT_SYSTEM), ("human", REWRITE_PROMPT_HUMAN)]
 )
 
-# 3) 프롬프트 + LLM + StrOutputParser 체인 생성
-question_rewriter = rewrite_prompt | llm.chat | StrOutputParser()
+question_rewriter = llm.chat_structured(rewrite_prompt)
 
 
 def transform_retrieve_query(state: Dict) -> Dict:
-    """
-    LangGraph 노드: retriever_query를 재작성합니다.
-    """
     node_log("TRANSFORM QUERY")
-    better_query: str = question_rewriter.invoke(
-        {
-            "retriever_query": state["retriever_query"],
-        }
-    )
+    better_query = question_rewriter({"retriever_query": state["retriever_query"]})
     state["retriever_query"] = better_query
     return state
 

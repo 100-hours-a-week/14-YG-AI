@@ -1,12 +1,14 @@
 import requests
 from llm.client import LLMClient
-from config import OLLAMA_HOST
 from typing import Dict, Any
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 
 class OllamaClient(LLMClient):
     def __init__(self, model_name: str):
-        self.url = f"{OLLAMA_HOST}/v1/models/{model_name}/chat"
+        self.url = f"{os.getenv("OLLAMA_HOST")}/v1/models/{model_name}/chat"
 
     def chat(self, prompt: str, **kwargs) -> str:
         resp = requests.post(self.url, json={"prompt": prompt})

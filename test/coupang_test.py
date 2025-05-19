@@ -26,7 +26,12 @@ client = TestClient(app)
 
 def test_generation_success(url, exp_keyword, exp_price, exp_count):
     # API 호출
-    resp = client.post("/generation/description", json={"url": url}, timeout = 120)
+    resp = client.post(
+        "/generation/description",
+        json={"url": url},
+        headers={"Cookie": "AccessToken=your_access_token"},
+        timeout=120
+    )
     assert resp.status_code == 200
 
     body = resp.json()
