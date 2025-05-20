@@ -9,12 +9,12 @@ from generate_product_announcement import generate_product_announcement
 def verify_access_token_cookie(cookie: Optional[str] = Header(None, alias="cookie")):
     if not cookie or not cookie.startswith("AccessToken="):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="유효한 AccessToken 쿠키가 필요합니다."
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="인증 정보가 없습니다. (401 Unauthorized) from fastAPI"
         )
-    # (선택) 토큰 값을 분리해 반환하고 싶다면:
+
     # token = cookie.split(";", 1)[0].removeprefix("AccessToken=")
-    # return token
+
     return cookie
 
 # 1) 요청 바디 스키마
