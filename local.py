@@ -34,7 +34,7 @@ if __name__ == "__main__":
         # "url": "https://www.11st.co.kr/products/5351424764",
         # "url": "https://www.11st.co.kr/products/5233499372"
         # 쿠팡 발아현미밥
-        "url": "https://www.coupang.com/vp/products/8107798642"
+        # "url": "https://www.coupang.com/vp/products/8107798642"
         # "url": "https://www.coupang.com/vp/products/7038410615?itemId=17397680231&vendorItemId=84567137606",
         # 브랜드.네이버 김치사발면
         # "url": "https://brand.naver.com/nongshim/products/9744402416",
@@ -45,6 +45,7 @@ if __name__ == "__main__":
         # 오늘의집
         # "url": "https://ohou.se/productions/1234567?affect_type=ProductCategory&affect_id=1234567&affect_type=ProductCategory&affect_id=1234567",
         # "url": "https://ohou.se/productions/345755/selling",
+        "url": "https://ohou.se/productions/871380/selling?affect_id=23&affect_type=StoreSearchResult"
         # 지마켓
         # "url": "https://item.gmarket.co.kr/Item?goodscode=3066886016"
         # 이마트

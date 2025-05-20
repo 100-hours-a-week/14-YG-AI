@@ -10,6 +10,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium_stealth import stealth
 from webdriver_manager.chrome import ChromeDriverManager
+from selenium.common.exceptions import WebDriverException
 from typing import Dict, Any
 from config import node_log
 
@@ -83,31 +84,36 @@ def fetch_with_selenium(url: str, timeout: int = 15) -> str:
     opts.add_argument("--ignore-certificate-errors")
     opts.set_capability("acceptInsecureCerts", True)
 
-    # 드라이버 실행
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=opts)
+    try:
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=opts)
+    except WebDriverException as e:
+        raise RuntimeError(f"Chrome 드라이버 실행 실패: {e}")
 
-    stealth(
-        driver,
-        languages=["ko-KR", "ko"],
-        vendor="Google Inc.",
-        platform="iPhone",
-        webgl_vendor="Intel Inc.",
-        renderer="Intel Iris OpenGL Engine",
-        fix_hairline=True,
-    )
+    try:
+        stealth(
+            driver,
+            languages=["ko-KR", "ko"],
+            vendor="Google Inc.",
+            platform="iPhone",
+            webgl_vendor="Intel Inc.",
+            renderer="Intel Iris OpenGL Engine",
+            fix_hairline=True,
+        )
 
-    driver.execute_cdp_cmd(
-        "Page.addScriptToEvaluateOnNewDocument",
-        {
-            "source": "window.alert = ()=>{}; window.confirm = ()=>true; window.prompt = ()=>null;"
-        },
-    )
+        driver.execute_cdp_cmd(
+            "Page.addScriptToEvaluateOnNewDocument",
+            {
+                "source": "window.alert = ()=>{}; window.confirm = ()=>true; window.prompt = ()=>null;"
+            },
+        )
 
-    driver.get(url)
-    html = driver.page_source
-    driver.quit()
-    return html
+        driver.get(url)
+        html = driver.page_source
+        return html
+
+    finally:
+        driver.quit()
 
 
 def fetch_html_tool(state: Dict[str, Any]) -> Dict[str, Any]:
