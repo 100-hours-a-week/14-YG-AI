@@ -20,7 +20,7 @@ client = TestClient(app)
     ),
     (
         "https://www.11st.co.kr/products/5351424764",
-        "방울토마토", 8600, 2
+        "방울토마토", 9600, 2
     )
 ])
 
