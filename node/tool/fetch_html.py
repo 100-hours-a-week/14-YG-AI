@@ -12,6 +12,7 @@ from selenium_stealth import stealth
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import WebDriverException
 from typing import Dict, Any
+from node.tool.proxy_session import ProxySession  # 위치에 맞게 수정
 from config import node_log
 
 logger = logging.getLogger(__name__)
@@ -75,7 +76,7 @@ def is_blocked(content: str) -> bool:
     return False
 
 
-def fetch_with_selenium(url: str, timeout: int = 15) -> str:
+def fetch_with_selenium(url: str, timeout: int = 15, proxy: str = "") -> str:
     opts = Options()
     opts.add_argument("--headless=new")
     opts.add_argument("--disable-blink-features=AutomationControlled")
@@ -83,6 +84,9 @@ def fetch_with_selenium(url: str, timeout: int = 15) -> str:
     opts.add_argument("--disable-dev-shm-usage")
     opts.add_argument("--ignore-certificate-errors")
     opts.set_capability("acceptInsecureCerts", True)
+
+    if proxy:
+        opts.add_argument(f"--proxy-server={proxy}")
 
     try:
         service = Service(ChromeDriverManager().install())
@@ -124,7 +128,6 @@ def fetch_html_tool(state: Dict[str, Any]) -> Dict[str, Any]:
 
     html_str = ""
     try:
-        # requests 타임아웃을 조금 늘릴 수도 있습니다.
         resp = requests.get(url, timeout=15)
         resp.raise_for_status()
         resp.encoding = resp.apparent_encoding
@@ -145,8 +148,6 @@ def fetch_html_tool(state: Dict[str, Any]) -> Dict[str, Any]:
         html_str = fetch_with_selenium(url)
 
     if not html_str or is_blocked(html_str):
-        # raise RuntimeError(f"fetch_html 실패 (blocked or empty): {url}")
-        # html 가져오기 실패시 이미지 텍스트 파서로 넘기기
         node_log("FETCH_HTML: BLOCKED OR EMPTY")
         state["page"] = ""
         return state
@@ -156,3 +157,4 @@ def fetch_html_tool(state: Dict[str, Any]) -> Dict[str, Any]:
     clean_html(state)
 
     return state
+
