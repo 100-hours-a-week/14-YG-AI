@@ -127,15 +127,8 @@ def fetch_html_tool(state: Dict[str, Any]) -> Dict[str, Any]:
         raise ValueError("fetch_html_tool: state에 'url'이 없습니다.")
 
     html_str = ""
-
-    # 프록시 기반 세션 생성
-    proxy_session = ProxySession()
-    session = proxy_session.session
-    proxy = proxy_session.proxy
-
     try:
-        # 프록시로 requests 요청 시도
-        resp = session.get(url, timeout=15)
+        resp = requests.get(url, timeout=15)
         resp.raise_for_status()
         resp.encoding = resp.apparent_encoding
         candidate = resp.text
@@ -143,16 +136,16 @@ def fetch_html_tool(state: Dict[str, Any]) -> Dict[str, Any]:
         text_len = len(BeautifulSoup(candidate, "html.parser").get_text().strip())
         if is_blocked(candidate) or text_len < 300:
             node_log("STATIC fetch insufficient or blocked, using Selenium fallback")
-            html_str = fetch_with_selenium(url, proxy=proxy)
+            html_str = fetch_with_selenium(url)
         else:
             html_str = candidate
 
     except requests.exceptions.ReadTimeout as e:
         logger.info(f"requests timeout ({e}), switching to Selenium")
-        html_str = fetch_with_selenium(url, proxy=proxy)
+        html_str = fetch_with_selenium(url)
     except Exception as e:
         logger.info(f"requests fetch failed ({e}), switching to Selenium")
-        html_str = fetch_with_selenium(url, proxy=proxy)
+        html_str = fetch_with_selenium(url)
 
     if not html_str or is_blocked(html_str):
         node_log("FETCH_HTML: BLOCKED OR EMPTY")
@@ -160,5 +153,8 @@ def fetch_html_tool(state: Dict[str, Any]) -> Dict[str, Any]:
         return state
 
     state["page"] = [Document(page_content=html_str, metadata={"source": url})]
+
     clean_html(state)
+
     return state
+

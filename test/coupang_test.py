@@ -20,7 +20,7 @@ client = TestClient(app)
     ),
     (
         "https://www.coupang.com/vp/products/6978887378?vendorItemId=85194178297",
-        "롯데샌드", 42940, 16
+        "롯데샌드", 45600, 16
     )
 ])
 

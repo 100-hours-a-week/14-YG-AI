@@ -25,9 +25,6 @@ def fetch_coupang_tool(state):
     session = proxy_session.session
     proxy = proxy_session.proxy
 
-    print(session)
-    print(proxy)
-
     # 전체 HTML 가져오기
     try:
         time.sleep(random.uniform(0.5, 0.8))
