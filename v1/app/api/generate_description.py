@@ -1,21 +1,9 @@
-# app.py
-from fastapi import FastAPI, Header, HTTPException, status, Depends
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from typing import Optional
 from typing import Optional
 
 from generate_product_announcement import generate_product_announcement
-
-def verify_access_token_cookie(cookie: Optional[str] = Header(None, alias="cookie")):
-    if not cookie or not cookie.startswith("AccessToken="):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="인증 정보가 없습니다. (401 Unauthorized) from fastAPI"
-        )
-
-    # token = cookie.split(";", 1)[0].removeprefix("AccessToken=")
-
-    return cookie
+from api.security.access_token_handler import verify_access_token_cookie
 
 # 1) 요청 바디 스키마
 class Generate_product_announcement_Request(BaseModel):
@@ -35,16 +23,9 @@ class APIResponse(BaseModel):
     message: str
     data: Optional[Generate_product_announcement_Response] = None
 
+router = APIRouter()
 
-# 3) FastAPI 인스턴스
-app = FastAPI(
-    title="상품 상세 설명 생성 API",
-    version="0.1.0",
-    description="URL을 받아 LangGraph 워크플로우로 상품 상세 설명을 생성합니다.",
-)
-
-
-@app.post(
+@router.post(
     "/generation/description",
     response_model=APIResponse,
     summary="상품 상세 설명 생성",
@@ -66,9 +47,3 @@ def generate_description(req: Generate_product_announcement_Request):
             message="서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
             data=None,
         )
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run("app:app", host="0.0.0.0", port=8100)

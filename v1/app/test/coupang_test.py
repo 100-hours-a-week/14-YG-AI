@@ -1,14 +1,10 @@
-# tests/test_app.py
 import pytest
 import sys, os, time
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-from app import app
+from main import app
 from fastapi.testclient import TestClient
 
 client = TestClient(app)
 
-# 1) 정상 동작 케이스: (URL, 예상 lower_name의 키워드, 예상 total_price, 예상 count)
 @pytest.mark.parametrize("url, exp_keyword, exp_price, exp_count", [
     (
         "https://www.coupang.com/vp/products/8107798642?itemId=23374319052&vendorItemId=90882133321",
