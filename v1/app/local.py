@@ -1,13 +1,12 @@
 from config import RECURSION_LIMIT
 from langchain_core.runnables import RunnableConfig
 from langchain_teddynote.messages import random_uuid
-from graph import app
-from graph_output import invoke_graph, invoke_graph_clean, invoke_graph_json_test
+from graph.graph import app
+from graph.graph_output import invoke_graph_json_test
 import sys
 
 # traceback을 아예 안 보여주도록 설정
 sys.tracebacklimit = 0
-
 
 def local_test(inputs: dict):
     """
@@ -19,8 +18,6 @@ def local_test(inputs: dict):
         recursion_limit=RECURSION_LIMIT, configurable={"thread_id": random_uuid()}
     )
     # 2) 그래프 실행
-    # invoke_graph(app, inputs, config, node_names=["product_desc_gen"])
-    # invoke_graph_clean(app, inputs, config, node_names=["product_desc_gen"])
     invoke_graph_json_test(app, inputs, config, node_names=["product_desc_gen"])
 
 
