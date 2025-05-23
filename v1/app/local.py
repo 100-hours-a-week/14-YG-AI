@@ -33,7 +33,7 @@ if __name__ == "__main__":
         # 11번가 키위
         # "url": "https://www.11st.co.kr/products/5233499372"
         # 쿠팡 사조참치
-        # "url": "https://www.coupang.com/vp/products/7038410615?itemId=17397680231&vendorItemId=84567137606",
+        "url": "https://www.coupang.com/vp/products/7038410615?itemId=17397680231&vendorItemId=84567137606",
         # 브랜드.네이버 김치사발면
         # "url": "https://brand.naver.com/nongshim/products/9744402416",
         # 네이버 스마트스토어 몬스터

@@ -17,6 +17,10 @@ client = TestClient(app)
     (
         "https://brand.naver.com/nongshim/products/9744402416",
         "김치사발면", 22330, 24
+    ),
+    (
+        "https://brand.naver.com/jambaekee/products/10567632140",
+        "닭가슴살", 1480, 1
     )
 ])
 

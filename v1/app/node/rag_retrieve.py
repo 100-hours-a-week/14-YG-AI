@@ -24,7 +24,7 @@ def rag_retrieve(state: Dict) -> Dict:
     global retriever
     # 처음 호출이거나 retriever가 없으면 인덱스부터 생성
     if "retriever_query" not in state:
-        node_log("RETRIEVE")
+        node_log("RAG RETRIEVE")
         text = state["page"]
         docs = [Document(page_content=text, metadata={"source": state["url"]})]
         if state.get("page_meta") != "":
