@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Optional
 
-from api import generate_description
+from api import generate_post
 
 app = FastAPI(
     title="generate_description_server",
@@ -10,7 +10,7 @@ app = FastAPI(
     description="URL을 받아 LangGraph 워크플로우로 상품 상세 설명을 생성합니다.",
 )
 
-app.include_router(generate_description.router)
+app.include_router(generate_post.router)
 
 @app.get("/")
 def read_root():
