@@ -4,7 +4,10 @@ import requests
 from dotenv import load_dotenv
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from urllib.parse import urlparse
 from config import node_log
+
+load_dotenv()
 
 proxy_list = list(
     filter(None, [os.getenv("PROXY1"), os.getenv("PROXY2")])
@@ -12,13 +15,12 @@ proxy_list = list(
 
 class ProxySession:
     def __init__(self):
-        node_log("SET PROXY")
-        load_dotenv()
-
         if not proxy_list:
             raise RuntimeError("PROXY 환경변수 설정 필요")
 
         self._proxy = random.choice(proxy_list)
+
+        node_log(f"SET PROXY: {self.getProxyName()}")
 
         user_agent = (
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -49,7 +51,14 @@ class ProxySession:
         self._session.mount("https://", adapter)
         self._session.mount("http://", adapter)
 
+    def getProxyName(self):
+        parsed = urlparse(self._proxy)
+        user_info = parsed.username or ""
 
+        try:
+            return user_info.split('zone-')[1].split('-country')[0]
+        except (IndexError, AttributeError):
+            return "CANTPARSEPROXYNAME"
 
     @property
     def session(self) -> requests.Session:

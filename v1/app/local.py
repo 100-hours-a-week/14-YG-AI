@@ -1,7 +1,7 @@
 from config import RECURSION_LIMIT
 from langchain_core.runnables import RunnableConfig
 from langchain_teddynote.messages import random_uuid
-from api.generate_post import generate_post_run
+from api.generate_post import generate_post_run_test
 import sys
 
 # traceback을 아예 안 보여주도록 설정
@@ -30,4 +30,4 @@ if __name__ == "__main__":
         # 이마트 영양제
         # "url": "https://emart.ssg.com/item/itemView.ssg?itemId=1000686149754&siteNo=6001&salestrNo=6005"
     }
-    generate_post_run(input)
+    generate_post_run_test(input)

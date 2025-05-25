@@ -6,7 +6,7 @@ from config import RECURSION_LIMIT
 from langchain_core.runnables import RunnableConfig
 from langchain_teddynote.messages import random_uuid
 from graph.graph import app
-from graph.graph_output import invoke_graph_json
+from graph.graph_output import invoke_graph_json, invoke_graph_json_test
 
 
 def generate_post_run(input: dict):
@@ -15,6 +15,13 @@ def generate_post_run(input: dict):
     )
 
     return invoke_graph_json(app, input, config, node_names=["product_desc_gen"])
+
+def generate_post_run_test(input: dict):
+    config = RunnableConfig(
+        recursion_limit=RECURSION_LIMIT, configurable={"thread_id": random_uuid()}
+    )
+
+    return invoke_graph_json_test(app, input, config, node_names=["product_desc_gen"])
 
 
 # 1) 요청 바디 스키마
