@@ -15,8 +15,8 @@ client = TestClient(app)
         "김치사발면", 22330, 24
     ),
     (
-        "https://brand.naver.com/jambaekee/products/10567632140",
-        "닭가슴살", 1480, 1
+        "https://smartstore.naver.com/twostarmall/products/10002872902",
+        "핫식스", 16700, 12
     )
 ])
 
