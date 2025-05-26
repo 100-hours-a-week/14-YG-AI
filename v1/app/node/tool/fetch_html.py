@@ -1,8 +1,6 @@
-import re
-import json
+import re, json, logging
 from bs4 import BeautifulSoup
 from langchain_core.documents import Document
-import requests, logging
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -11,20 +9,21 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import WebDriverException
 from typing import Dict, Any
 from config import node_log
+from node.tool.proxy_session import ProxySession
 
 logger = logging.getLogger(__name__)
 
 
 def clean_html(state: Dict[str, Any]) -> Dict[str, Any]:
     # 1) 원본 HTML 가져오기
-    raw_html = (
+    html = (
         state["page"][0].page_content
         if isinstance(state["page"], list) and hasattr(state["page"][0], "page_content")
         else state["page"]
     )
 
     # 2) BeautifulSoup으로 태그 제거 & 순수 텍스트 저장
-    soup = BeautifulSoup(raw_html, "html.parser")
+    soup = BeautifulSoup(html, "html.parser")
     state["page"] = soup.get_text(separator="\n", strip=True)
 
     pieces: list[str] = []
@@ -53,7 +52,7 @@ def clean_html(state: Dict[str, Any]) -> Dict[str, Any]:
 
     # 5) 주요 JSON 키 패턴으로 가격 검색
     pattern_kv = r'"((?=[^"]*price)(?![^"]*last)[^"]*)"\s*:\s*([0-9]+(?:\.[0-9]+)?)'
-    matches_kv = re.findall(pattern_kv, raw_html, flags=re.IGNORECASE)
+    matches_kv = re.findall(pattern_kv, html, flags=re.IGNORECASE)
 
     for key, val in matches_kv:
         if int(float(val)) != 0:
@@ -118,38 +117,40 @@ def fetch_with_selenium(url: str, timeout: int = 15, proxy: str = "") -> str:
 
 
 def fetch_html_tool(state: Dict[str, Any]) -> Dict[str, Any]:
-    node_log("FETCHING AND CLEANING HTML")
+    node_log("FETCHING HTML")
     url = state.get("url")
     if not url:
         raise ValueError("fetch_html_tool: state에 'url'이 없습니다.")
 
-    html_str = ""
+    proxy_session = ProxySession()
+    session = proxy_session.session
+    proxy = proxy_session.proxy
+
+    # 전체 HTML 가져오기
     try:
-        resp = requests.get(url, timeout=15)
+        resp = session.get(url, timeout=(10, 120))  # connect 10s, read 60s
         resp.raise_for_status()
-        resp.encoding = resp.apparent_encoding
-        candidate = resp.text
-
-        text_len = len(BeautifulSoup(candidate, "html.parser").get_text().strip())
-        if is_blocked(candidate) or text_len < 300:
-            node_log("STATIC fetch insufficient or blocked, using Selenium fallback")
-            html_str = fetch_with_selenium(url)
-        else:
-            html_str = candidate
-
-    except requests.exceptions.ReadTimeout as e:
-        logger.info(f"requests timeout ({e}), switching to Selenium")
-        html_str = fetch_with_selenium(url)
+        resp.encoding = resp.apparent_encoding     
+        html = resp.text
     except Exception as e:
-        logger.info(f"requests fetch failed ({e}), switching to Selenium")
-        html_str = fetch_with_selenium(url)
+        node_log(f"requests failed ({e}), falling back to Selenium")
+        opts = Options()
+        opts.add_argument("--headless")
+        opts.add_argument(f"--proxy-server={proxy}")
+        driver = webdriver.Chrome(
+            service=Service(ChromeDriverManager().install()), options=opts
+        )
+        driver.get(url)
+        html = driver.page_source
+        driver.quit()
 
-    if not html_str or is_blocked(html_str):
+    if not html or is_blocked(html):
         node_log("FETCH_HTML: BLOCKED OR EMPTY")
-        state["page"] = ""
+        state["page"] = []
+        state["page_meta"] = []  
         return state
 
-    state["page"] = [Document(page_content=html_str, metadata={"source": url})]
+    state["page"] = [Document(page_content=html, metadata={"source": url})]
 
     clean_html(state)
 

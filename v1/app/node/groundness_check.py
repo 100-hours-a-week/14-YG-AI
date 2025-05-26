@@ -48,10 +48,10 @@ def _grade(state: Dict, docs_key: str) -> str:
         result = Groundedness.parse_raw(raw)
         score = result.binary_score.lower()
     except (ValidationError, json.JSONDecodeError):
-        score = "yes" if "yes" in raw.lower() else "no"
+        score = True if "yes" in raw.lower() else False
 
     # 4) decision 및 반환
-    if score == "yes":
+    if score:
         node_log("DECISION: GENERATION IS GROUNDED IN DOCUMENTS")
         return "relevant"
     else:

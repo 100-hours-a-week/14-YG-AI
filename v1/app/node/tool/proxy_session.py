@@ -33,11 +33,10 @@ class ProxySession:
         self._session.headers.update(
             {
                 "User-Agent": user_agent,
-                "Accept-Encoding": "gzip, deflate, br",
+                "Accept-Encoding": "gzip, deflate",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                 "Accept-Language": "ko-KR,ko;q=0.9",
-                "Connection": "keep-alive",
-                "Referer": "https://www.coupang.com/",
+                "Connection": "keep-alive"
             }
         )
 
@@ -58,7 +57,7 @@ class ProxySession:
         try:
             return user_info.split('zone-')[1].split('-country')[0]
         except (IndexError, AttributeError):
-            return "CANTPARSEPROXYNAME"
+            return "CANNOT PARSE PROXY NAME"
 
     @property
     def session(self) -> requests.Session:
