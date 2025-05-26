@@ -1,5 +1,3 @@
-# node/tool/fetch_html.py
-
 import re
 import json
 from bs4 import BeautifulSoup
@@ -12,7 +10,6 @@ from selenium_stealth import stealth
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import WebDriverException
 from typing import Dict, Any
-from node.tool.proxy_session import ProxySession  # 위치에 맞게 수정
 from config import node_log
 
 logger = logging.getLogger(__name__)

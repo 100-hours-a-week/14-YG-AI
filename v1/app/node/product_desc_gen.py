@@ -1,5 +1,3 @@
-# node/generate.py
-
 from langchain_core.prompts import PromptTemplate
 from llm.factory import get_desc_gen_client
 from config import PRODUCT_DESC_GEN_PROMPT, node_log

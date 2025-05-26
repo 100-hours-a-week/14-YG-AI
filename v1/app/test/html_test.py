@@ -1,5 +1,4 @@
 import pytest
-import sys, os, time
 from main import app
 from fastapi.testclient import TestClient
 
@@ -15,8 +14,8 @@ client = TestClient(app)
         "플레이브 드롭스", 22900, 1
     ),
     (
-        "https://www.11st.co.kr/products/5351424764",
-        "방울토마토", 9600, 2
+        "https://www.11st.co.kr/products/pa/5796843123",
+        "옥동자", 15960, 40
     )
 ])
 

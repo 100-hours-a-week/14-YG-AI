@@ -1,8 +1,4 @@
-# node/rewrite_retrieve_query.py
-
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-
 from llm.factory import get_rewriter_client
 from config import REWRITE_PROMPT_SYSTEM, REWRITE_PROMPT_HUMAN, node_log
 from typing import Dict
