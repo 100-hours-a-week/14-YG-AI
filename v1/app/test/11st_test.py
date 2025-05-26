@@ -6,16 +6,12 @@ client = TestClient(app)
 
 @pytest.mark.parametrize("url, exp_keyword, exp_price, exp_count", [
     (
-        "https://brand.naver.com/monsterenergy/products/6697660209",
-        "몬스터", 37170, 24
+        "https://www.11st.co.kr/products/pa/5796843123",
+        "옥동자", 15960, 40
     ),
     (
-        "https://brand.naver.com/nongshim/products/9744402416",
-        "김치사발면", 22330, 24
-    ),
-    (
-        "https://smartstore.naver.com/twostarmall/products/10002872902",
-        "핫식스", 16700, 12
+        "https://www.11st.co.kr/products/5233499372",
+        "키위", 29900, 1
     )
 ])
 
@@ -48,6 +44,7 @@ def test_generation_success(url, exp_keyword, exp_price, exp_count):
 
 
 # def test_generation_failure(monkeypatch):
+
 #     import generate_product_announcement as gpa_module
 
 #     def fake_raise(arg):

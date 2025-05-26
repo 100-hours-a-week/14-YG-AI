@@ -9,9 +9,11 @@ if __name__ == "__main__":
     # 디폴트 테스트 URL 혹은 JSON 파싱 등을 여기에 넣어두셔도 되고
     input = {
         # 마프 오메가3
-        # "url": "https://www.myprotein.co.kr/p/sports-nutrition/essential-omega-3/10529329/",
+        "url": "https://www.myprotein.co.kr/p/sports-nutrition/essential-omega-3/10529329/",
         # 11번가 옥동자아이스크림
-        "url": "https://www.11st.co.kr/products/pa/5796843123"
+        # "url": "https://www.11st.co.kr/products/pa/5796843123"
+        # 11번가 키위
+        # "url": "https://www.11st.co.kr/products/5233499372"
         # 쿠팡 사조참치
         # "url": "https://www.coupang.com/vp/products/7038410615?itemId=17397680231&vendorItemId=84567137606",
         # 브랜드.네이버 김치사발면
@@ -19,7 +21,7 @@ if __name__ == "__main__":
         # 네이버 스마트스토어 몬스터
         # "url": "https://smartstore.naver.com/365mart1/products/7325472185"
         # GS샵 생수
-        # "url": "https://www.gsshop.com/prd/prd.gs?prdid=13866536&lseq=390802-7&gsid=ECmain-AU390802-AU390802-7&dseq=7&svcid=pc&bnclick=main-mrcm_mainMrcmA_PopularCateItemUirm&rank=7"
+        # "url": "https://www.gsshop.com/prd/prd.gs?prdid=13866536"
         # 오늘의집 수건
         # "url": "https://ohou.se/productions/345755/selling",
         # 지마켓 트레비
