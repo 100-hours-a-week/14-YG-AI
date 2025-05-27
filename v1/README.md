@@ -6,7 +6,11 @@
     <img alt="Static Badge" src="https://img.shields.io/badge/langsmith-black?style=flat&logo=langsmith&logoColor=white">
 </p>
 
+### 도커라이징
+> dockerfile가 있는 디렉토리에서 이미지 빌드
+
 ### 랭그래프 아키텍처
+
 ```mermaid
 flowchart TD
 subgraph Config[recursion_limit=15]
