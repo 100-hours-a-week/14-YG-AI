@@ -1,17 +1,13 @@
-import os
-import sys
-import time
-import re
-import warnings
-from typing import Dict
+import os, time, re, warnings
 import easyocr
+from typing import Dict
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import UnexpectedAlertPresentException
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium_stealth import stealth
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse
 from config import node_log
 
 import torch

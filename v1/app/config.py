@@ -4,16 +4,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 ## Summerize LLM 설정
-LLM_PROVIDER_GENERATOR = os.getenv("LLM_PROVIDER_GENERATOR", "openai")
-MODEL_NAME_GENERATOR = os.getenv("MODEL_NAME_GENERATOR", "gpt-4o")
+LLM_PROVIDER_GENERATOR = os.getenv("LLM_PROVIDER")
+MODEL_NAME_GENERATOR = os.getenv("MODEL_NAME")
 
 # Hollucination Check LLM 설정
-LLM_PROVIDER_GRADER = os.getenv("LLM_PROVIDER_GRADER", "openai")
-MODEL_NAME_GRADER = os.getenv("MODEL_NAME_GRADER", "gpt-4o")
+LLM_PROVIDER_GRADER = os.getenv("HALLUCINATION_LLM_PROVIDER")
+MODEL_NAME_GRADER = os.getenv("HALLUCINATION_MODEL_NAME")
 
 # Rewite query LLM 설정
-LLM_PROVIDER_REWRITER = os.getenv("LLM_PROVIDER_REWRITER", "openai")
-MODEL_NAME_REWRITER = os.getenv("MODEL_NAME_REWRITER", "gpt-4o")
+LLM_PROVIDER_REWRITER = os.getenv("LLM_PROVIDER")
+MODEL_NAME_REWRITER = os.getenv("MODEL_NAME")
 
 # ── 일반 설정 ───────────────────────────
 RECURSION_LIMIT = int(os.getenv("RECURSION_LIMIT", 15))
@@ -51,7 +51,7 @@ PRODUCT_ANNC_PARCER_PROMPT = """
 """
 
 
-# 수정 해야함 node_log("Generate Product Description")
+# 수정 해야함? node_log("Generate Product Description")
 PRODUCT_DESC_GEN_PROMPT = """
 당신은 특정 제품을 검색한 결과로부터 제품에 대한 특징을 추출해 홍보글을 만들어주는 전문가 AI입니다. 
 사용자가 쉽게 이해할 수 있도록 다음과 같은 내용을 지켜주세요.

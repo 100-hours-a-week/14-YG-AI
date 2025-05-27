@@ -1,5 +1,3 @@
-# graph_console_renderer.py
-
 from typing import Any, Dict, List, Callable
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph

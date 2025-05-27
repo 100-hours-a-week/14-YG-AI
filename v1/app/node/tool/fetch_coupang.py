@@ -8,7 +8,6 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from node.tool.proxy_session import ProxySession
-import random
 
 # SSL 인증서 경고 무시
 warnings.filterwarnings("ignore", category=InsecureRequestWarning)
@@ -27,7 +26,6 @@ def fetch_coupang_tool(state):
 
     # 전체 HTML 가져오기
     try:
-        time.sleep(random.uniform(0.5, 0.8))
         resp = session.get(url, timeout=(10, 120))  # connect 10s, read 60s
         resp.raise_for_status()
         html = resp.text

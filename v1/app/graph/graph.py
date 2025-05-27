@@ -1,4 +1,4 @@
-from typing_extensions import TypedDict, Annotated, Any
+from typing_extensions import TypedDict, Annotated
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 from node.tool.fetch_html import fetch_html_tool

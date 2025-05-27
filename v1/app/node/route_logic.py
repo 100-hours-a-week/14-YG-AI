@@ -1,6 +1,5 @@
-# node/route_question.py
 from typing import Dict
-from config import node_log  # , html_domain
+from config import node_log 
 
 
 def route_logic(state: Dict) -> str:
