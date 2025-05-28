@@ -1,0 +1,42 @@
+# Git 리포지토리 메타데이터
+.git
+.gitignore
+
+# Python 가상 환경 및 캐시
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# 패키징 및 빌드 산출물
+build/
+dist/
+*.egg-info/
+*.whl
+
+# 환경 설정 및 자격 증명
+.env
+*.env
+*.key
+*.pem
+
+# 로그 및 임시 파일
+*.log
+tmp/
+temp/
+
+# IDE 및 에디터 설정
+.vscode/
+.idea/
+
+# Docker 파일별 별도 ignore (선택)
+Dockerfile.*
+docker-compose*.yml
+
+# OS별 숨김 파일
+.DS_Store
+Thumbs.db
+
+# 불필요한 JSON 파일
+*.json
