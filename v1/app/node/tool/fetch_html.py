@@ -10,6 +10,7 @@ from selenium.common.exceptions import WebDriverException
 from typing import Dict, Any
 from config import node_log
 from node.tool.proxy_session import ProxySession
+from node.tool.crawl_thumbnail import upload_thumbnail, crawl_and_save
 
 logger = logging.getLogger(__name__)
 
@@ -126,9 +127,12 @@ def fetch_html_tool(state: Dict[str, Any]) -> Dict[str, Any]:
     session = proxy_session.session
     proxy = proxy_session.proxy
 
-    # 전체 HTML 가져오기
+    if "generation" not in state or not isinstance(state["generation"], dict):
+        state["generation"] = {}
+    state["generation"]["upload_image_key"] = upload_thumbnail(crawl_and_save(url, session))
+
     try:
-        resp = session.get(url, timeout=(10, 120))  # connect 10s, read 60s
+        resp = session.get(url, timeout=(10, 120))
         resp.raise_for_status()
         resp.encoding = resp.apparent_encoding     
         html = resp.text

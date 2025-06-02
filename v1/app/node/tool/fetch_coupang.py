@@ -8,6 +8,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from node.tool.proxy_session import ProxySession
+from node.tool.crawl_thumbnail import upload_thumbnail, crawl_and_save
 
 # SSL 인증서 경고 무시
 warnings.filterwarnings("ignore", category=InsecureRequestWarning)
@@ -24,9 +25,12 @@ def fetch_coupang_tool(state):
     session = proxy_session.session
     proxy = proxy_session.proxy
 
-    # 전체 HTML 가져오기
+    if "generation" not in state or not isinstance(state["generation"], dict):
+        state["generation"] = {}
+    state["generation"]["upload_image_key"] = upload_thumbnail(crawl_and_save(url, session))
+
     try:
-        resp = session.get(url, timeout=(10, 120))  # connect 10s, read 60s
+        resp = session.get(url, timeout=(10, 120))
         resp.raise_for_status()
         html = resp.text
     except Exception as e:

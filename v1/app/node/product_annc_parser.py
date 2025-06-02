@@ -25,7 +25,7 @@ class Topic(BaseModel):
     count: int = Field(description="메인 상품의 개수(개수 단위가 붙은 숫자)")
 
 
-def product_annc_parser(state: Dict) -> Dict:
+def product_annc_parser(state: dict) -> dict:
     node_log("PRODUCT ANNOUNCEMENT PARSER")
     docs = state["documents"]
 
@@ -46,5 +46,9 @@ def product_annc_parser(state: Dict) -> Dict:
     text = getattr(answer, "content", answer)
     parsed: Topic = parser.parse(text)
 
-    state["generation"] = parsed
+    if "generation" not in state or not isinstance(state["generation"], dict):
+        state["generation"] = {}
+    for key, value in parsed.items():
+        state["generation"][key] = value
+    
     return state
