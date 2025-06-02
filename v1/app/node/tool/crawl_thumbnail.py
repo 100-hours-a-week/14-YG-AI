@@ -179,11 +179,3 @@ def upload_thumbnail(file_path: str):
     except requests.HTTPError as e:
         print(f"[ERROR] Upload failed: {e}\nResponse body: {resp.text}")
         return e
-
-
-if __name__ == '__main__':
-    # page = 'https://smartstore.naver.com/twostarmall/products/10002872902'
-    # page = 'https://www.11st.co.kr/products/8087653567?trTypeCd=03&trCtgrNo=2142534'
-    page = 'https://www.coupang.com/vp/products/1444994289?itemId=2490179570'
-
-    upload_thumbnail(crawl_and_save(page))
