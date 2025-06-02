@@ -18,7 +18,7 @@ def product_title_gen(state: Dict) -> Dict:
         context=state["generation"],
         product_lower_name=state["generation"]["product_lower_name"],
     )
-    summary = llm.chat(prompt)
-    state["generation"]["title"] = summary
+    
+    state["generation"]["title"] = llm.chat(prompt)
 
     return {"generation": state["generation"]}

@@ -4,9 +4,8 @@ import sys
 # traceback을 아예 안 보여주도록 설정
 sys.tracebacklimit = 0
 
-# 아래 코드는 스크립트로 직접 실행할 때, 기본 URL을 넣어주는 예시입니다.
+
 if __name__ == "__main__":
-    # 디폴트 테스트 URL 혹은 JSON 파싱 등을 여기에 넣어두셔도 되고
     input = {
         # 마프 오메가3
         "url": "https://www.myprotein.co.kr/p/sports-nutrition/essential-omega-3/10529329/",
@@ -29,4 +28,5 @@ if __name__ == "__main__":
         # 이마트 영양제
         # "url": "https://emart.ssg.com/item/itemView.ssg?itemId=1000686149754&siteNo=6001&salestrNo=6005"
     }
+    
     generate_post_run_test(input)
