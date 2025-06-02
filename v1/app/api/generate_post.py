@@ -31,6 +31,7 @@ class Generate_Post_Request(BaseModel):
 
 # 2) 응답 데이터 스키마
 class Generate_Post_Response(BaseModel):
+    upload_image_key: str
     title: str
     product_name: str
     total_price: int

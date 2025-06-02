@@ -23,6 +23,7 @@ from node.product_title_gen import product_title_gen
 
 
 class GraphState(TypedDict):
+    upload_image_key: Annotated[str, "upload_image_key"]
     url: Annotated[str, "url"]
     page: Annotated[list, "page"]
     page_meta: Annotated[str, "page_meta"]
@@ -31,7 +32,7 @@ class GraphState(TypedDict):
     web_search_query: Annotated[str, "web_search_query"]
     documents: Annotated[list, "docs"]
     web_search: Annotated[list, "web_search"]
-    generation: Annotated[str, "summary"]
+    generation: Annotated[dict, "generate_post_result"]
 
 
 # 그래프 상태 초기화
