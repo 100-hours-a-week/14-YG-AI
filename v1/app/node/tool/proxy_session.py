@@ -19,26 +19,25 @@ class ProxySession:
             raise RuntimeError("PROXY 환경변수 설정 필요")
 
         self._proxy = random.choice(proxy_list)
-
         node_log(f"SET PROXY: {self.getProxyName()}")
 
         user_agent = (
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
+            "Mozilla/5.0 (X11; Linux x86_64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/91.0.4472.114 Safari/537.36"
         )
+        default_headers = {
+            "User-Agent": user_agent,
+            "Accept-Encoding": "gzip, deflate",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "ko-KR,ko;q=0.9",
+            "Connection": "keep-alive",
+        } 
 
         self._session = requests.Session()
         self._session.proxies.update({"http": self._proxy, "https": self._proxy})
         self._session.verify = False
-        self._session.headers.update(
-            {
-                "User-Agent": user_agent,
-                "Accept-Encoding": "gzip, deflate",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "ko-KR,ko;q=0.9",
-                "Connection": "keep-alive"
-            }
-        )
+        self._session.headers.update(default_headers)
 
         retry_strategy = Retry(
             total=1,
