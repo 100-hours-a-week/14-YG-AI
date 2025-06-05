@@ -38,9 +38,8 @@ subgraph RAG["RAG + Product Info"]
 end
 
 subgraph Description_Generation["Product Description Pipeline"]
-    web_search_tool --> product_desc_gen[LLM: Product Description Generator]
-    product_desc_gen --> product_title_gen[LLM: Product Title Generator]
-    product_title_gen --> End(Product Information Summary)
+    web_search_tool --> product_post_gen[LLM: Product title, describe generator]
+    product_post_gen --> End(return Post)
 end
 ```
 
