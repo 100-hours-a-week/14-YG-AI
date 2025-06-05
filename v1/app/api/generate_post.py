@@ -26,8 +26,8 @@ class Generate_Post_Response(BaseModel):
     total_price: int
     count: int
     summary: str
-    dueDate: str
-    pickupDate: str
+    due_date: str
+    pickup_date: str
     
 
 class APIResponse(BaseModel):

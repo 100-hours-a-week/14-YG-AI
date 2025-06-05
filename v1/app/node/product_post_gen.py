@@ -22,8 +22,8 @@ async def product_post_gen(state: Dict) -> Dict:
 
     state["generation"]["summary"] = desc_res
     state["generation"]["title"] = title_res
-    state["generation"]["dueDate"] = generate_due_date()
-    state["generation"]["pickupDate"] = generate_pickup_date()
+    state["generation"]["due_date"] = generate_due_date()
+    state["generation"]["pickup_date"] = generate_pickup_date()
 
     return {"generation": state["generation"]}
 
