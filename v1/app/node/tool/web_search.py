@@ -14,7 +14,6 @@ def parse_search_dict(rec: dict) -> Document:
     title = rec.get("title", "")
     content = rec.get("content", "")
 
-    # 제목과 내용만 page_content로 합치기
     page_content = f"{title}\n\n{content}"
 
     return Document(page_content=page_content)

@@ -143,65 +143,48 @@ def invoke_graph_clean(
     except Exception as e:
         print(f"====error====\n{e}")
 
+# 동기 로직 시절의 구닥다리 코드..
+# def invoke_graph_json(
+#     graph: CompiledStateGraph,
+#     inputs: dict,
+#     config: RunnableConfig,
+#     node_names: List[str] = None,
+#     callback: Callable[[Dict[str, Any]], None] = None,
+# ):
+#     node_names = set(node_names or [])
+#     result = None
 
-def invoke_graph_json(
-    graph: CompiledStateGraph,
-    inputs: dict,
-    config: RunnableConfig,
-    node_names: List[str] = None,
-    callback: Callable[[Dict[str, Any]], None] = None,
-) -> Any:
-    """
-    LangGraph의 'updates' 스트림을 돌면서,
-    node_names에 해당하는 노드가 방출하는 마지막 data만 반환합니다.
-    중간 과정은 전혀 출력하지 않습니다.
-    """
-    node_names = set(node_names or [])
-    result = None
+#     try:
+#         for _, chunk in graph.stream(
+#             inputs, config, stream_mode="updates", subgraphs=True
+#         ):
+#             for node, data in chunk.items():
+#                 if not node_names or node in node_names:
+#                     result = data
+#         print(json.dumps(result, indent=4, ensure_ascii=False))
+#         return result
 
-    try:
-        for _, chunk in graph.stream(
-            inputs, config, stream_mode="updates", subgraphs=True
-        ):
-            for node, data in chunk.items():
-                # node_names가 비어있다면 모든 노드를 대상으로,
-                # 아니면 지정된 노드만 대상으로 업데이트
-                if not node_names or node in node_names:
-                    result = data
-        # 스트림이 끝날 때까지 돌고 나면 마지막으로 기록된 result를 반환
-        print(json.dumps(result, indent=4, ensure_ascii=False))
-        return result
-
-    except Exception as e:
-        print("공고글을 생성할 수 없습니다")
-        return e
+#     except Exception as e:
+#         print("공고글을 생성할 수 없습니다")
+#         return e
     
 
-def invoke_graph_json_test(
+async def invoke_graph_json(
     graph: CompiledStateGraph,
     inputs: dict,
     config: RunnableConfig,
     node_names: List[str] = None,
-    callback: Callable[[Dict[str, Any]], None] = None,
-) -> Any:
-    """
-    LangGraph의 'updates' 스트림을 돌면서,
-    node_names에 해당하는 노드가 방출하는 마지막 data만 반환합니다.
-    중간 과정은 전혀 출력하지 않습니다.
-    """
+):
     node_names = set(node_names or [])
     result = None
 
-    for _, chunk in graph.stream(
+    async for mode, chunk in graph.astream(
         inputs, config, stream_mode="updates", subgraphs=True
     ):
         for node, data in chunk.items():
-            # node_names가 비어있다면 모든 노드를 대상으로,
-            # 아니면 지정된 노드만 대상으로 업데이트
             if not node_names or node in node_names:
                 result = data
-    # 스트림이 끝날 때까지 돌고 나면 마지막으로 기록된 result를 반환
+
+
     print(json.dumps(result, indent=4, ensure_ascii=False))
     return result
-
-

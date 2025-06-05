@@ -28,9 +28,8 @@ class VertexClient(LLMClient):
         """
         단일 프롬프트에 대해 응답 텍스트를 반환합니다.
         """
-        # GenerationConfig 생성
         gen_config = GenerationConfig(temperature=self.temperature)
-        # send_message 에 generation_config 전달
+
         response = self.chat_session.send_message(
             prompt, generation_config=gen_config, **kwargs
         )
@@ -40,7 +39,6 @@ class VertexClient(LLMClient):
         """
         프롬프트 템플릿과 입력을 받아 형식화된 chat 함수를 반환합니다.
         """
-
         def _run(inp: Dict[str, Any]) -> str:
             text_prompt = prompt_template.format(**inp)
             return self.chat(text_prompt)
@@ -48,3 +46,16 @@ class VertexClient(LLMClient):
         if inputs is None:
             return _run
         return _run(inputs)
+
+    async def async_generate(self, prompt):
+        """
+        비동기 호출의 응답 텍스트를 반환합니다.
+        """
+        gen_config = GenerationConfig(temperature=self.temperature)
+
+        response = await self.model.generate_content_async(
+            [prompt],
+            generation_config=gen_config,
+            stream=False,
+        )
+        return response.text

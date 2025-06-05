@@ -2,8 +2,8 @@ from typing import Dict
 from config import node_log 
 
 
-def route_logic(state: Dict) -> str:
-    node_log("ROUTE LOGIC")
+def router(state: Dict) -> str:
+    node_log("ROUTING")
 
     domain = state["url"]
 

@@ -2,6 +2,10 @@
 .AppleDouble
 .LSOverride
 
+v1/app/img/thumbnail.jpg
+v1/app/img/thumbnail.png
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

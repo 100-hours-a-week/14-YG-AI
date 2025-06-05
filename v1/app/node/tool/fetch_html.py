@@ -10,6 +10,10 @@ from selenium.common.exceptions import WebDriverException
 from typing import Dict, Any
 from config import node_log
 from node.tool.proxy_session import ProxySession
+from node.tool.crawl_thumbnail import crawl_thumbnail
+
+import asyncio
+import aiohttp
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +65,6 @@ def clean_html(state: Dict[str, Any]) -> Dict[str, Any]:
     # 7) pieces를 state["page_meta"]에 담기
     state["page_meta"] = "\n".join(pieces)
 
-
 def is_blocked(content: str) -> bool:
     if not content or len(content) < 200:
         return True
@@ -71,52 +74,7 @@ def is_blocked(content: str) -> bool:
             return True
     return False
 
-
-def fetch_with_selenium(url: str, timeout: int = 15, proxy: str = "") -> str:
-    opts = Options()
-    opts.add_argument("--headless=new")
-    opts.add_argument("--disable-blink-features=AutomationControlled")
-    opts.add_argument("--no-sandbox")
-    opts.add_argument("--disable-dev-shm-usage")
-    opts.add_argument("--ignore-certificate-errors")
-    opts.set_capability("acceptInsecureCerts", True)
-
-    if proxy:
-        opts.add_argument(f"--proxy-server={proxy}")
-
-    try:
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=opts)
-    except WebDriverException as e:
-        raise RuntimeError(f"Chrome 드라이버 실행 실패: {e}")
-
-    try:
-        stealth(
-            driver,
-            languages=["ko-KR", "ko"],
-            vendor="Google Inc.",
-            platform="iPhone",
-            webgl_vendor="Intel Inc.",
-            renderer="Intel Iris OpenGL Engine",
-            fix_hairline=True,
-        )
-
-        driver.execute_cdp_cmd(
-            "Page.addScriptToEvaluateOnNewDocument",
-            {
-                "source": "window.alert = ()=>{}; window.confirm = ()=>true; window.prompt = ()=>null;"
-            },
-        )
-
-        driver.get(url)
-        html = driver.page_source
-        return html
-
-    finally:
-        driver.quit()
-
-
-def fetch_html_tool(state: Dict[str, Any]) -> Dict[str, Any]:
+async def fetch_html_tool(state):
     node_log("FETCHING HTML")
     url = state.get("url")
     if not url:
@@ -124,19 +82,25 @@ def fetch_html_tool(state: Dict[str, Any]) -> Dict[str, Any]:
 
     proxy_session = ProxySession()
     session = proxy_session.session
-    proxy = proxy_session.proxy
+    proxy1 = proxy_session.proxy1
+    proxy2 = proxy_session.proxy2
 
-    # 전체 HTML 가져오기
+    if "generation" not in state or not isinstance(state["generation"], dict):
+        state["generation"] = {}
+
+    thumbnail_task = asyncio.create_task(crawl_thumbnail(url, session, proxy1))
+
     try:
-        resp = session.get(url, timeout=(10, 120))  # connect 10s, read 60s
-        resp.raise_for_status()
-        resp.encoding = resp.apparent_encoding     
-        html = resp.text
+        connector = aiohttp.TCPConnector(ssl=False)
+        async with aiohttp.ClientSession(connector=connector) as client:
+            async with client.get(url, proxy=proxy2) as resp:
+                resp.raise_for_status()
+                html = await resp.read()
     except Exception as e:
-        node_log(f"requests failed ({e}), falling back to Selenium")
+        node_log(f"HTML 요청 실패 ({e}), Selenium으로 폴백")
         opts = Options()
         opts.add_argument("--headless")
-        opts.add_argument(f"--proxy-server={proxy}")
+        opts.add_argument(f"--proxy-server={proxy2}")
         driver = webdriver.Chrome(
             service=Service(ChromeDriverManager().install()), options=opts
         )
@@ -147,12 +111,22 @@ def fetch_html_tool(state: Dict[str, Any]) -> Dict[str, Any]:
     if not html or is_blocked(html):
         node_log("FETCH_HTML: BLOCKED OR EMPTY")
         state["page"] = []
-        state["page_meta"] = []  
+        state["page_meta"] = []
         return state
 
     state["page"] = [Document(page_content=html, metadata={"source": url})]
 
     clean_html(state)
 
+    # HTML을 다 가져온 뒤에, 썸네일 작업 끝까지 처리
+    try:
+        upload_key = await thumbnail_task
+    except Exception as e:
+        node_log(f"crawl_thumbnail 작업 중 예외 발생: {e}")
+        upload_key = None
+
+    state["generation"]["upload_image_key"] = upload_key
+    
     return state
+
 
