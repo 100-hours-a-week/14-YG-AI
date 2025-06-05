@@ -9,6 +9,9 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 import warnings
 
+import aiohttp
+import asyncio
+
 from auth.get_presigned_url import get_presigned_url
 
 
@@ -73,24 +76,26 @@ def fetch_naver_thumbnail_url(page_url, session, selector='img'):
 
     return img_url
 
-def download_thumbnail(img_url, dest_dir, session):
+async def download_thumbnail(img_url, proxy):
     savefilename = 'thumbnail.jpg'
     parsed = urlparse(img_url)
     filename = os.path.basename(parsed.path)
     if not filename:
         return
 
-    dest_path = os.path.join(dest_dir, savefilename)
+    dest_path = os.path.join('img', savefilename)
 
-    # 스트리밍 모드로 요청
-    with session.get(img_url, stream=True) as r:
-        r.raise_for_status()
-        with open(dest_path, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
+    connector = aiohttp.TCPConnector(ssl=False)
 
-    return dest_path 
+    async with aiohttp.ClientSession(connector=connector) as client:
+        async with client.get(img_url, proxy=proxy) as resp:
+            resp.raise_for_status()
+            data = await resp.read()
+
+            with open(dest_path, 'wb') as f:
+                f.write(data)
+
+    return dest_path
 
 
 def capture_thumbnail(url):
@@ -140,8 +145,7 @@ def capture_thumbnail(url):
     finally:
         driver.quit()
 
-
-def crawl_and_save(url: str, session: str):
+async def crawl_and_save(url: str, session, proxy):
     os.makedirs('img', exist_ok=True)
 
     domain_handlers = {
@@ -154,7 +158,8 @@ def crawl_and_save(url: str, session: str):
             try:
                 thumbnail_url = handler(url, session)
                 try:
-                    return download_thumbnail(thumbnail_url, 'img', session)
+                    download_thumbnail_path = await download_thumbnail(thumbnail_url, proxy)
+                    return download_thumbnail_path
                 except Exception as e:
                     print(f"[ERROR] 다운로드 실패 ({thumbnail_url}): {e}")
                     return e
@@ -162,20 +167,37 @@ def crawl_and_save(url: str, session: str):
                 print(f"[ERROR] 페이지 로드 실패: {e}")
                 return e
 
-    return capture_thumbnail(url)
+    download_thumbnail_path = capture_thumbnail(url)
 
-def upload_thumbnail(file_path: str):
+    return download_thumbnail_path
+
+async def upload_thumbnail(download_thumbnail_path: str):
     presigned_url = get_presigned_url()
 
-    file_path = os.getcwd() + '/' + file_path
+    file_path = os.getcwd() + '/' + download_thumbnail_path
 
     with open(file_path, 'rb') as f:
-        files = {'file': (file_path, f, 'image')}
+        file_bytes = f.read()
 
-        resp = requests.put(presigned_url.get('url'), data=f, headers={'Content-Type': 'image'})
-    try:
-        resp.raise_for_status()
-        return presigned_url.get('key')
-    except requests.HTTPError as e:
-        print(f"[ERROR] Upload failed: {e}\nResponse body: {resp.text}")
-        return e
+    connector = aiohttp.TCPConnector(ssl=False)
+
+    async with aiohttp.ClientSession(connector=connector) as session:
+        try:
+            async with session.put(
+                presigned_url.get('url'),
+                data=file_bytes,
+                headers={'Content-Type': 'image'}
+            ) as resp:
+                resp.raise_for_status()
+                return presigned_url.get('key')
+        except aiohttp.ClientResponseError as e:
+            body = await resp.text()
+            print(f"[ERROR] Upload failed: {e}\nResponse body: {body}")
+            return e
+
+async def crawl_thumbnail(url: str, session, proxy):
+    download_thumbnail_path = await crawl_and_save(url, session, proxy)
+    
+    upload_image_key = await upload_thumbnail(download_thumbnail_path)
+
+    return upload_image_key
