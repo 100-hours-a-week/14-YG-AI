@@ -20,4 +20,8 @@ easyocr==1.7.2
 fastapi==0.115.12
 uvicorn==0.34.2
 pytest==8.3.5
-pytest-mock
+PyYAML>=6.0
+torch==2.3.0
+opencv-python-headless==4.9.0.80
+pytest-mock==3.14.0
+uvicorn[standard]
