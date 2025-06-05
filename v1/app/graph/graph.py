@@ -19,11 +19,9 @@ from node.product_post_gen import product_post_gen
 
 
 class GraphState(TypedDict):
-    upload_image_key: Annotated[str, "upload_image_key"]
     url: Annotated[str, "url"]
     page: Annotated[list, "page"]
     page_meta: Annotated[str, "page_meta"]
-
     retriever_query: Annotated[str, "retriever_query"]
     web_search_query: Annotated[str, "web_search_query"]
     documents: Annotated[list, "docs"]
