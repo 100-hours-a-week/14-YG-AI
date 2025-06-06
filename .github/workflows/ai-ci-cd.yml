@@ -1,0 +1,102 @@
+name: AI CI/CD
+
+on:
+  push:
+    branches: [tmp/deploy-sally]
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: ai-moongsan
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+
+jobs:
+  ci:
+    name: CI - Build & Push Docker Image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Fix requirements.txt
+        run: |
+          sed -i 's/^PyYAML.*/PyYAML==6.0/' v1/requirements.txt || echo 'PyYAML==6.0' >> v1/requirements.txt
+          sed -i 's/^torch.*/torch==2.2.2/' v1/requirements.txt || echo 'torch==2.2.2' >> v1/requirements.txt
+          sed -i 's/^opencv-python-headless.*/opencv-python-headless==4.9.0.80/' v1/requirements.txt || echo 'opencv-python-headless==4.9.0.80' >> v1/requirements.txt
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./v1
+          file: ./v1/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/ai-moongsan:${{ github.sha }}
+
+  cd:
+    name: CD - Deploy to Remote Server
+    runs-on: ubuntu-latest
+    needs: ci
+
+    steps:
+      - name: Generate .env and JSON secrets
+        run: |
+          mkdir -p secrets
+          printf "%s\n" "${{ secrets.AI_ENV }}" > secrets/.env
+          echo '${{ secrets.SERVICE_ACCOUNT_JSON }}' > secrets/deft-observer-456807-c5-e9dda0532301.json
+
+      - name: 🔍 Verify generated secrets before upload
+        run: |
+          echo "Working directory:"
+          pwd
+
+          echo "Root contents:"
+          ls -al
+
+          echo "Secrets directory contents:"
+          ls -lh secrets/
+
+          echo ".env file preview (top 10 lines):"
+          head -n 10 secrets/.env || echo "❌ .env missing or empty"
+
+          echo " JSON file preview (top 10 lines):"
+          head -n 10 secrets/deft-observer-456807-c5-e9dda0532301.json || echo "❌ json missing or empty"
+
+      - name: Upload secrets to remote server
+        uses: appleboy/scp-action@v0.1.5
+        with:
+          host: ${{ secrets.AI_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "secrets"
+          target: /home/${{ secrets.DEPLOY_USER }}
+
+      - name: Run Docker container on remote server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.AI_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "Stopping and removing old container (if exists)"
+            docker stop ai-moongsan || true
+            docker rm ai-moongsan || true
+
+            echo "Pulling latest image"
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/ai-moongsan:${{ github.sha }}
+
+            echo "Running new container with volume mounts"
+            docker run -d -p 8100:8100 --name ai-moongsan \
+            --network moongsan-net \
+              -v /home/${{ secrets.DEPLOY_USER }}/secret:/var/moongsan/secret \
+              -v /home/${{ secrets.DEPLOY_USER }}/secrets/.env:/app/.env \
+              -v /home/${{ secrets.DEPLOY_USER }}/secrets/deft-observer-456807-c5-e9dda0532301.json:/app/deft-observer-456807-c5-e9dda0532301.json \
+              ${{ secrets.DOCKERHUB_USERNAME }}/ai-moongsan:${{ github.sha }}
