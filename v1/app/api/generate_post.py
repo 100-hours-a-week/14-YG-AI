@@ -16,10 +16,10 @@ async def generate_post_run(input: dict):
 
     return await invoke_graph_json(app, input, config, node_names=["product_post_gen"])
 
-class Generate_Post_Request(BaseModel):
+class GeneratePostRequest(BaseModel):
     url: str
 
-class Generate_Post_Response(BaseModel):
+class GeneratePostResponse(BaseModel):
     upload_image_key: str
     title: str
     product_name: str
@@ -32,7 +32,7 @@ class Generate_Post_Response(BaseModel):
 
 class APIResponse(BaseModel):
     message: str
-    data: Optional[Generate_Post_Response] = None
+    data: Optional[GeneratePostResponse] = None
 
 
 router = APIRouter()
@@ -43,12 +43,12 @@ router = APIRouter()
     summary="공구 주최글 생성",
     dependencies=[Depends(verify_access_token_cookie)],
 )
-async def generate_post(req: Generate_Post_Request):
+async def generate_post(req: GeneratePostRequest):
     try:
         result = await generate_post_run(req.dict())
 
         payload = result.get("generation", result)
-        data = Generate_Post_Response(**payload)
+        data = GeneratePostResponse(**payload)
         return APIResponse(message="상품 상세 설명이 생성되었습니다.", data=data)
 
     except Exception as e:
