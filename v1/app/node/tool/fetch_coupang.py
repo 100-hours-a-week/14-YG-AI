@@ -12,12 +12,25 @@ from node.tool.crawl_thumbnail import crawl_thumbnail
 
 import asyncio
 import aiohttp
+import json
 
 # SSL 인증서 경고 무시
 warnings.filterwarnings("ignore", category=InsecureRequestWarning)
 
 
-# ─── .env 로드 및 proxy 설정 ─────────────────────────
+async def extract_product_data(html) -> str:
+    soup = BeautifulSoup(html, 'html.parser')
+
+    script = soup.find('script', {'src': 'product', 'type': 'application/ld+json'})
+
+    data = json.loads(script.string)
+    name = data.get('name')
+    description = data.get('description')
+    price = data.get('offers', {}).get('price')
+
+    return f'{name}\n{description}\n{price}'
+
+
 async def fetch_coupang_tool(state):
     node_log("FETCHING COUPANG HTML")
     url = state.get("url")
@@ -39,7 +52,7 @@ async def fetch_coupang_tool(state):
         async with aiohttp.ClientSession(connector=connector) as client:
             async with client.get(url, proxy=proxy2) as resp:
                 resp.raise_for_status()
-                html = await resp.read()
+                html = await resp.content.read(10000)
     except Exception as e:
         node_log(f"requests failed ({e}), falling back to Selenium")
         opts = Options()
@@ -52,29 +65,19 @@ async def fetch_coupang_tool(state):
         html = driver.page_source
         driver.quit()
 
-    # BeautifulSoup으로 전체 HTML 파싱
-    soup = BeautifulSoup(html, "html.parser")
+    if not html:
+        node_log("FETCH_HTML: BLOCKED OR EMPTY")
+        state["page"] = []
+        state["page_meta"] = []
+        return state
 
-    # 필요한 메타·가격 정보 추출, 필요한 정보 추가 가능
-    pieces = []
-    # 메타 제목
-    if tag := soup.select_one('meta[property="og:title"]'):
-        pieces.append(tag.get("content", "").strip())
-    # 메타 설명
-    if tag := soup.select_one('meta[property="og:description"]'):
-        pieces.append(tag.get("content", "").strip())
-    # 본문 가격
-    if price_tag := soup.select_one("span.total-price strong"):
-        pieces.append(price_tag.get_text(strip=True))
-
-    result = "\n".join(pieces)
-    # print(result)
-    state["page"] = result
+    state["page"] = await extract_product_data(html)
     state["page_meta"] = ""
 
-    # HTML을 다 가져온 뒤에, 썸네일 작업이 끝났을 때까지 기다려서 결과를 꺼냄
+    # task(썸네일 업로드) 완수
     try:
         upload_key = await thumbnail_task
+        # upload_key = "test"
     except Exception as e:
         node_log(f"crawl_thumbnail 작업 중 예외 발생: {e}")
         upload_key = None

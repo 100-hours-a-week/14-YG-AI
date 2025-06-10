@@ -18,8 +18,7 @@ import aiohttp
 logger = logging.getLogger(__name__)
 
 
-def clean_html(state: Dict[str, Any]) -> Dict[str, Any]:
-    # 1) 원본 HTML 가져오기
+def clean_html(state: Dict[str, Any]):
     html = (
         state["page"][0].page_content
         if isinstance(state["page"], list) and hasattr(state["page"][0], "page_content")
@@ -65,15 +64,6 @@ def clean_html(state: Dict[str, Any]) -> Dict[str, Any]:
     # 7) pieces를 state["page_meta"]에 담기
     state["page_meta"] = "\n".join(pieces)
 
-def is_blocked(content: str) -> bool:
-    if not content or len(content) < 200:
-        return True
-    text = BeautifulSoup(content, "html.parser").get_text().lower()
-    for kw in ["captcha", "robot", "blocked", "access denied", "too many requests"]:
-        if kw in text:
-            return True
-    return False
-
 async def fetch_html_tool(state):
     node_log("FETCHING HTML")
     url = state.get("url")
@@ -96,6 +86,7 @@ async def fetch_html_tool(state):
             async with client.get(url, proxy=proxy2) as resp:
                 resp.raise_for_status()
                 html = await resp.read()
+
     except Exception as e:
         node_log(f"HTML 요청 실패 ({e}), Selenium으로 폴백")
         opts = Options()
@@ -108,7 +99,7 @@ async def fetch_html_tool(state):
         html = driver.page_source
         driver.quit()
 
-    if not html or is_blocked(html):
+    if not html:
         node_log("FETCH_HTML: BLOCKED OR EMPTY")
         state["page"] = []
         state["page_meta"] = []
@@ -118,9 +109,10 @@ async def fetch_html_tool(state):
 
     clean_html(state)
 
-    # HTML을 다 가져온 뒤에, 썸네일 작업 끝까지 처리
+    # task(썸네일 업로드) 완수
     try:
         upload_key = await thumbnail_task
+        # upload_key = "test"
     except Exception as e:
         node_log(f"crawl_thumbnail 작업 중 예외 발생: {e}")
         upload_key = None
