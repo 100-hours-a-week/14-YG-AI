@@ -2,7 +2,7 @@ name: AI CI/CD
 
 on:
   push:
-    branches: [tmp/deploy-sally]
+    branches: [dev]
   workflow_dispatch:
 
 env:
