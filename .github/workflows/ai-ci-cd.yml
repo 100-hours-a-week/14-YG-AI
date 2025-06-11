@@ -100,3 +100,6 @@ jobs:
               -v /home/${{ secrets.DEPLOY_USER }}/secrets/.env:/app/.env \
               -v /home/${{ secrets.DEPLOY_USER }}/secrets/deft-observer-456807-c5-e9dda0532301.json:/app/deft-observer-456807-c5-e9dda0532301.json \
               ${{ secrets.DOCKERHUB_USERNAME }}/ai-moongsan:${{ github.sha }}
+
+            echo "🧹 Running safe Docker cleanup (no volumes or important containers affected)"
+            docker system prune -f || echo "No resources to prune"
