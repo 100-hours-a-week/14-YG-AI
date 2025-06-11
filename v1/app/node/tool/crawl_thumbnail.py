@@ -98,14 +98,11 @@ async def download_thumbnail(img_url, proxy):
     return dest_path
 
 
-def capture_thumbnail(url):
+def capture_thumbnail(url, output_path = 'img/thumbnail.jpg'):
     os.makedirs('img', exist_ok=True)
 
-    savefilename = 'thumbnail.jpg'
-    output_path = 'img/' + savefilename
-
     options = Options()
-    options.add_argument('--headless=new')
+    options.add_argument('--headless')
     options.add_experimental_option(
         "mobileEmulation",
         {
@@ -121,23 +118,6 @@ def capture_thumbnail(url):
     driver = webdriver.Chrome(options=options)
     try:
         driver.get(url)
-        # 한글 폰트 js로 주입
-        inject_js = r"""
-            var link = document.createElement('link');
-            link.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap';
-            link.rel = 'stylesheet';
-            document.head.appendChild(link);
-            var style = document.createElement('style');
-            style.innerHTML = "body, * { font-family: 'Noto Sans KR', sans-serif !important; }";
-            document.head.appendChild(style);
-        """
-        driver.execute_script(inject_js)
-        driver.execute_async_script("""
-            const callback = arguments[arguments.length - 1];
-            document.fonts.ready.then(() => callback());
-        """)
-
-
         driver.get_screenshot_as_file(output_path)
 
         return output_path

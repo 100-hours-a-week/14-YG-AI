@@ -4,7 +4,6 @@ from langchain_core.documents import Document
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-from selenium_stealth import stealth
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import WebDriverException
 from typing import Dict, Any
@@ -86,39 +85,26 @@ async def fetch_html_tool(state):
             async with client.get(url, proxy=proxy2) as resp:
                 resp.raise_for_status()
                 html = await resp.read()
-
+            
+        state["page"] = [Document(page_content=html, metadata={"source": url})]
+        clean_html(state)
     except Exception as e:
-        node_log(f"HTML 요청 실패 ({e}), Selenium으로 폴백")
-        opts = Options()
-        opts.add_argument("--headless")
-        opts.add_argument(f"--proxy-server={proxy2}")
-        driver = webdriver.Chrome(
-            service=Service(ChromeDriverManager().install()), options=opts
-        )
-        driver.get(url)
-        html = driver.page_source
-        driver.quit()
+        node_log(f"HTML 요청 실패 ({e})")
 
-    if not html:
-        node_log("FETCH_HTML: BLOCKED OR EMPTY")
-        state["page"] = []
-        state["page_meta"] = []
-        return state
-
-    state["page"] = [Document(page_content=html, metadata={"source": url})]
-
-    clean_html(state)
-
-    # task(썸네일 업로드) 완수
+    # 썸네일 업로드 명시적 완료
     try:
         upload_key = await thumbnail_task
-        # upload_key = "test"
     except Exception as e:
         node_log(f"crawl_thumbnail 작업 중 예외 발생: {e}")
         upload_key = None
 
     state["generation"]["upload_image_key"] = upload_key
-    
+
+    if not html:
+        node_log("FETCH_HTML: BLOCKED OR EMPTY")
+        state["page"] = None
+        state["page_meta"] = None
+        return state
     return state
 
 

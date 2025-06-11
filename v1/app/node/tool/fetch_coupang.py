@@ -18,7 +18,7 @@ import json
 warnings.filterwarnings("ignore", category=InsecureRequestWarning)
 
 
-async def extract_product_data(html) -> str:
+def extract_product_data(html) -> str:
     soup = BeautifulSoup(html, 'html.parser')
 
     script = soup.find('script', {'src': 'product', 'type': 'application/ld+json'})
@@ -52,36 +52,25 @@ async def fetch_coupang_tool(state):
         async with aiohttp.ClientSession(connector=connector) as client:
             async with client.get(url, proxy=proxy2) as resp:
                 resp.raise_for_status()
-                html = await resp.content.read(10000)
+                html = await resp.content.read(8192)
+
+        state["page"] = extract_product_data(html)
+        state["page_meta"] = ""
     except Exception as e:
-        node_log(f"requests failed ({e}), falling back to Selenium")
-        opts = Options()
-        opts.add_argument("--headless")
-        opts.add_argument(f"--proxy-server={proxy2}")
-        driver = webdriver.Chrome(
-            service=Service(ChromeDriverManager().install()), options=opts
-        )
-        driver.get(url)
-        html = driver.page_source
-        driver.quit()
+        node_log(f"HTML 요청 실패 ({e})")
 
-    if not html:
-        node_log("FETCH_HTML: BLOCKED OR EMPTY")
-        state["page"] = []
-        state["page_meta"] = []
-        return state
-
-    state["page"] = await extract_product_data(html)
-    state["page_meta"] = ""
-
-    # task(썸네일 업로드) 완수
+    # 썸네일 업로드 명시적 완료
     try:
         upload_key = await thumbnail_task
-        # upload_key = "test"
     except Exception as e:
         node_log(f"crawl_thumbnail 작업 중 예외 발생: {e}")
         upload_key = None
 
     state["generation"]["upload_image_key"] = upload_key
 
+    if not html:
+        node_log("FETCH_HTML: BLOCKED OR EMPTY")
+        state["page"] = []
+        state["page_meta"] = []
+        return state
     return state
