@@ -24,13 +24,12 @@ def clean_html(state: Dict[str, Any]):
         else state["page"]
     )
 
-    # 2) BeautifulSoup으로 태그 제거 & 순수 텍스트 저장
     soup = BeautifulSoup(html, "html.parser")
     state["page"] = soup.get_text(separator="\n", strip=True)
 
     pieces: list[str] = []
 
-    # 3) <title>, meta.description, og:description, og:title
+    # filter: <title>, meta.description, og:description, og:title 
     if soup.title and soup.title.string:
         pieces.append(soup.title.string.strip())
     for sel in ("meta[name='description']", "meta[property='og:description']"):
@@ -40,17 +39,6 @@ def clean_html(state: Dict[str, Any]):
     tag = soup.select_one("meta[property='og:title']")
     if tag and tag.has_attr("content"):
         pieces.append(tag["content"].strip())
-
-    # 4) script#data 내부 JSON 페이로드 (견본)
-    data_tag = soup.select_one("script#data")
-    if data_tag and data_tag.string:
-        try:
-            obj = json.loads(data_tag.string)
-            for key in ("prdNo", "price", "content_category"):
-                if key in obj:
-                    pieces.append(f"{key}: {obj[key]}")
-        except json.JSONDecodeError:
-            pass
 
     # 5) 주요 JSON 키 패턴으로 가격 검색
     pattern_kv = r'"((?=[^"]*price)(?![^"]*last)[^"]*)"\s*:\s*([0-9]+(?:\.[0-9]+)?)'
