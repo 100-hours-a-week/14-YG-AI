@@ -1,14 +1,16 @@
-# llm/vertex_client.py
-
 from typing import Any, Dict
 import vertexai
 from vertexai.generative_models import GenerativeModel, GenerationConfig
 from llm.client import LLMClient
 import os
+import logging
+import asyncio
+import time
 from dotenv import load_dotenv
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
 
 class VertexClient(LLMClient):
     def __init__(self, model_name: str, temperature: float = 0):
@@ -30,10 +32,20 @@ class VertexClient(LLMClient):
         """
         gen_config = GenerationConfig(temperature=self.temperature)
 
-        response = self.chat_session.send_message(
-            prompt, generation_config=gen_config, **kwargs
-        )
-        return response.text
+        while True:
+            try:
+                response = self.chat_session.send_message(
+                    prompt, generation_config=gen_config, **kwargs
+                )
+                return response.text
+            except Exception as e:
+                msg = str(e)
+                if "429" in msg:
+                    logger.warning(f"429 detected in exception message, retrying in 5s…: {msg}")
+                    time.sleep(5)
+                    continue
+                raise 
+
 
     def chat_structured(self, prompt_template, inputs: Dict[str, Any] = None):
         """
@@ -50,12 +62,24 @@ class VertexClient(LLMClient):
     async def async_generate(self, prompt):
         """
         비동기 호출의 응답 텍스트를 반환합니다.
+        429 에러 발생 시 5초 후 재시도합니다.
         """
         gen_config = GenerationConfig(temperature=self.temperature)
 
-        response = await self.model.generate_content_async(
-            [prompt],
-            generation_config=gen_config,
-            stream=False,
-        )
-        return response.text
+        while True:
+            try:
+                response = await self.model.generate_content_async(
+                    [prompt],
+                    generation_config=gen_config,
+                    stream=False,
+                )
+                return response.text
+
+            except Exception as e:
+                msg = str(e)
+                if "429" in msg:
+                    logger.warning(f"429 detected in exception message, retrying in 5s…: {msg}")
+                    await asyncio.sleep(5)
+                    continue
+
+                raise
