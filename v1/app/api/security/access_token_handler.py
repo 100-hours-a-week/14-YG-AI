@@ -5,7 +5,7 @@ def verify_access_token_cookie(cookie: Optional[str] = Header(None, alias="cooki
     if not cookie or not cookie.startswith("AccessToken="):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="인증 정보가 없습니다. (401 Unauthorized) from fastAPI"
+            detail="인증 정보가 없습니다. from fastAPI"
         )
 
     return cookie

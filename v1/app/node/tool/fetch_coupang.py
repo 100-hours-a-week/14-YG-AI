@@ -70,7 +70,7 @@ async def fetch_coupang_tool(state):
 
     if not html:
         node_log("FETCH_HTML: BLOCKED OR EMPTY")
-        state["page"] = []
-        state["page_meta"] = []
+        state["page"] = None
+        state["page_meta"] = None
         return state
     return state

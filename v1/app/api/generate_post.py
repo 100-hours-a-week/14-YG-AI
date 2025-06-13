@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from api.security.access_token_handler import verify_access_token_cookie
@@ -7,9 +7,10 @@ from langchain_core.runnables import RunnableConfig
 from langchain_teddynote.messages import random_uuid
 from graph.graph import app
 from graph.graph_output import invoke_graph_json
+
 import asyncio
 
-async def generate_post_run(input: dict):
+async def run_generate_post(input: dict):
     config = RunnableConfig(
         recursion_limit=RECURSION_LIMIT, configurable={"thread_id": random_uuid()}
     )
@@ -45,7 +46,7 @@ router = APIRouter()
 )
 async def generate_post(req: GeneratePostRequest):
     try:
-        result = await generate_post_run(req.dict())
+        result = await run_generate_post(req.dict())
 
         payload = result.get("generation", result)
         data = GeneratePostResponse(**payload)
@@ -54,7 +55,6 @@ async def generate_post(req: GeneratePostRequest):
     except Exception as e:
         print(f"[Error] {e}")
         raise HTTPException(
-            status_code=500,
-            message="서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
-            data=None,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
         )
