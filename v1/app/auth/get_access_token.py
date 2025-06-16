@@ -1,15 +1,19 @@
 import requests
+import os
+from dotenv import load_dotenv
 
-domain = 'https://moongsan.com/api/users/token'
-email = '1234@gmail.com'
-password = 'ht12345!'
+load_dotenv()
 
-
-def login_and_get_token(auth_url: str = domain, email: str = email, password: str = password) -> str:
+def login_admin_and_get_token() -> str:
+    email = '1234@gmail.com'
+    password = 'ht12345!'
     payload = {
         'email': email,
         'password': password
     }
+
+    auth_url = os.getenv("BACKEND_URL") + 'api/users/token'
+
     resp = requests.post(auth_url, json=payload)
     resp.raise_for_status()
     data = resp.json()
