@@ -67,6 +67,7 @@ async def fetch_html_tool(state):
 
     thumbnail_task = asyncio.create_task(crawl_thumbnail(url, session, proxy1))
 
+    html = None
     try:
         connector = aiohttp.TCPConnector(ssl=False)
         async with aiohttp.ClientSession(connector=connector) as client:
