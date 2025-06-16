@@ -17,6 +17,7 @@ dist/
 
 # 환경 설정 및 자격 증명
 .env
+.env_sample
 *.env
 *.key
 *.pem
