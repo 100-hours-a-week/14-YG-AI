@@ -1,11 +1,10 @@
 from fastapi import FastAPI
-
 from api import generate_post
 
 app = FastAPI(
     title="generate_description_server",
     version="0.2.1",
-    description="URL을 받아 LangGraph 워크플로우로 상품 상세 설명을 생성합니다.",
+    description="URL to POST(상품 공동구매 주최글 작성 자동화) 서버.",
 )
 
 app.include_router(generate_post.router)
