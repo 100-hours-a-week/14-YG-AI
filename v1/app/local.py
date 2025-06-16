@@ -1,5 +1,6 @@
+
 from api.generate_post import generate_post_run
-import sys, asyncio
+import sys, asyncio, warnings
 
 # traceback을 아예 안 보여주도록 설정
 sys.tracebacklimit = 0
@@ -13,8 +14,8 @@ if __name__ == "__main__":
         # "url": "https://www.11st.co.kr/products/pa/5796843123"
         # 11번가 키위
         # "url": "https://www.11st.co.kr/products/5233499372"
-        # 쿠팡 사조참치
-        "url": "https://www.coupang.com/vp/products/7708747035?itemId=20658371999",
+        # 쿠팡 올리브참치
+        # "url": "https://www.coupang.com/vp/products/7708747035?itemId=20658371999",
         # 브랜드.네이버 김치사발면
         # "url": "https://brand.naver.com/nongshim/products/9744402416",
         # 네이버 스마트스토어 몬스터
