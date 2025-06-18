@@ -53,7 +53,7 @@ async def fetch_coupang_tool(state):
         async with aiohttp.ClientSession(connector=connector) as client:
             async with client.get(url, proxy=proxy2) as resp:
                 resp.raise_for_status()
-                html = await resp.content.read(8192)
+                html = await resp.read()
 
         state["page"] = extract_product_data(html)
         state["page_meta"] = ""
