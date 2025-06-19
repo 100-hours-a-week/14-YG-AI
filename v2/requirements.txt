@@ -1,0 +1,56 @@
+# Core LangChain and LangGraph - 지정된 버전
+langchain-core==0.3.55
+langgraph==0.3.16
+langgraph-supervisor
+langchain-community==0.3.20
+
+# LangGraph 추가 의존성 (0.3부터 필수)
+langgraph-prebuilt==0.1.1
+langgraph-checkpoint==2.0.16
+
+# LangChain 메인 패키지 (community와 호환되는 버전)
+langchain==0.3.21
+
+langfuse==3.0.3
+# LangServe 추가 의존성 (스트리밍 지원)
+sse-starlette==2.3.6
+
+# Google Cloud and Vertex AI - 호환 버전 조정
+google-cloud-aiplatform==1.76.0
+google-auth==2.34.0
+langchain-google-vertexai==2.0.12
+
+# FastAPI and server
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+
+# Database
+asyncpg==0.30.0
+psycopg2-binary==2.9.10
+pgvector==0.3.6
+
+# HTTP and async
+httpx==0.28.1
+aiohttp==3.11.10
+
+# Data processing - Pydantic 2 호환
+pydantic==2.10.3
+python-dotenv==1.0.1
+numpy==1.26.4
+pandas==2.2.3
+
+# Embeddings (Upstage) - Python 3.11에서 정상 작동
+langchain-upstage==0.6.0
+
+# Utilities
+python-json-logger==2.0.7
+structlog==24.4.0
+tenacity==9.0.0
+
+# Development and testing
+pytest==8.3.4
+pytest-asyncio==0.25.0
+black==24.10.0
+flake8==7.1.1
+mypy==1.13.0
+python-dateutil==2.8.2

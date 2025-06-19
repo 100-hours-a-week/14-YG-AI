@@ -4,9 +4,15 @@
 
 v1/app/img/thumbnail.jpg
 v1/app/img/thumbnail.png
+v2/deft-observer-456807-c5-e9dda0532301.json
+deft-observer-456807-c5-e9dda0532301.json
+v2/__pycache__
+
+v2/venv
 
 
 # Byte-compiled / optimized / DLL files
+
 __pycache__/
 *.py[cod]
 *$py.class

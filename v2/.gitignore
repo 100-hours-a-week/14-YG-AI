@@ -1,0 +1,326 @@
+# .gitignore
+
+# ===== Python =====
+# 바이트 코드 파일
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 빌드 아티팩트
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# 단위 테스트 / 커버리지 리포트
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# ===== 가상환경 =====
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# pdm
+.pdm.toml
+
+# PEP 582
+__pypackages__/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath
+*.sage.py
+
+# 가상환경 디렉토리
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+.ENV/
+
+# ===== 환경 변수 및 설정 =====
+# 환경 변수 파일 (중요한 API 키 포함)
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.staging
+
+# 설정 파일들
+config.ini
+secrets.json
+credentials.json
+
+# Google Cloud 인증 파일
+*-credentials.json
+*-service-account.json
+deft-observer-*.json
+service-account-*.json
+
+# AWS 설정
+.aws/
+
+# ===== 로그 파일 =====
+logs/
+*.log
+log/
+*.log.*
+
+# ===== 데이터베이스 =====
+# SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# PostgreSQL 덤프
+*.sql
+*.dump
+
+# ===== IDE 및 에디터 =====
+# VSCode
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*~
+*.swp
+*.swo
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ===== macOS =====
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# 아이콘
+Icon
+
+# 썸네일
+._*
+
+# Spotlight
+.Spotlight-V100
+.Trashes
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# ===== Windows =====
+# Windows 썸네일 캐시 파일
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+
+# 덤프 파일
+*.stackdump
+
+# 폴더 설정 파일
+[Dd]esktop.ini
+
+# Microsoft Fuse 리사이클 빈
+$RECYCLE.BIN/
+
+# Windows Installer 파일
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+
+# Windows 바로 가기
+*.lnk
+
+# ===== 임시 파일 =====
+# 임시 디렉토리
+tmp/
+temp/
+.tmp/
+
+# 백업 파일
+*.bak
+*.backup
+*.old
+*.orig
+
+# 압축 파일
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# ===== 프로젝트 특화 =====
+# 업로드된 파일들
+uploads/
+media/
+static_collected/
+
+# 캐시 디렉토리
+.cache/
+cache/
+
+# 노드 모듈 (프론트엔드 관련시)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 도커
+docker-compose.override.yml
+.dockerignore
+
+# 테스트 결과
+test-results/
+test-reports/
+
+# 프로파일링 결과
+.prof
+
+# ===== API 키 및 시크릿 =====
+# API 키가 포함된 파일들
+*api_key*
+*secret*
+*password*
+*.pem
+*.key
+*.p12
+*.keystore
+
+# LangChain / LangSmith
+.langchain/
+.langsmith/
+
+# LangFuse
+.langfuse/
+
+# Upstage API
+upstage_*.json
+
+# ===== 커스텀 제외 =====
+# 개발용 테스트 파일들
+test_*.py
+debug_*.py
+scratch_*.py
+playground_*.py
+
+# 실험용 노트북
+experiments/
+notebooks/
+*.ipynb
+
+# 문서 초안
+docs/draft/
+*.draft.*
+
+# 개발용 스크립트
+dev_*.py
+local_*.py
+
+# 데이터 파일
+data/
+*.csv
+*.json
+*.xml
+*.xlsx
+
+# 모델 파일
+models/
+*.pkl
+*.model
+*.bin
+
+# 체크포인트
+checkpoints/
+*.ckpt
+
+# ===== 예외 (포함할 파일들) =====
+# 예제 설정 파일은 포함
+!.env.example
+!config.example.json
+!requirements.txt
+!README.md
+
+# 기본 스태틱 파일은 포함
+!static/index.html
+!static/css/
+!static/js/
+!static/images/
+
+# 문서는 포함
+!docs/README.md
+!docs/*.md

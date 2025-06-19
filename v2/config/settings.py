@@ -1,0 +1,235 @@
+# config/settings.py
+import os
+from typing import Optional, List
+from pydantic import field_validator
+from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
+
+# .env 파일 로드
+load_dotenv()
+
+
+class DatabaseSettings(BaseSettings):
+    """데이터베이스 설정"""
+
+    # PostgreSQL 설정
+    host: str = "localhost"
+    port: int = 5432
+    user: str = "jeongtaek"
+    password: str = "postgres"
+    dbname: str = "test"
+
+    # 벡터 DB 관련
+    vector_dimension: int = 1024
+
+    @property
+    def connection_params(self) -> dict:
+        """psycopg2 연결 파라미터 반환"""
+        return {
+            "host": self.host,
+            "port": self.port,
+            "user": self.user,
+            "password": self.password,
+            "dbname": self.dbname,
+        }
+
+    class Config:
+        env_prefix = "DB_"
+        extra = "ignore"
+
+
+class GoogleCloudSettings(BaseSettings):
+    """Google Cloud 및 Vertex AI 설정"""
+
+    project: str = "deft-observer-456807-c5"
+    location: str = "us-central1"
+    credentials_path: str = "deft-observer-456807-c5-e9dda0532301.json"
+
+    # LLM 설정
+    model_name: str = "gemini-2.0-flash"
+    temperature: float = 0.7
+
+    @field_validator("credentials_path")  # @validator 대신 @field_validator
+    @classmethod
+    def validate_credentials_path(cls, v):
+        if not os.path.exists(v):
+            raise ValueError(f"Google Cloud 인증 파일을 찾을 수 없습니다: {v}")
+        return v
+
+    class Config:
+        env_prefix = "GOOGLE_"
+        extra = "ignore"
+
+
+class UpstageSettings(BaseSettings):
+    """Upstage API 설정"""
+
+    api_key: str
+    base_url: str = "https://api.upstage.ai/v1"
+    embedding_model: str = "embedding-query"
+
+    class Config:
+        env_prefix = "UPSTAGE_"
+        extra = "ignore"
+
+
+class LangfuseSettings(BaseSettings):
+    """Langfuse 트레이싱 설정"""
+
+    enabled: bool = True
+    public_key: Optional[str] = None
+    secret_key: Optional[str] = None
+    host: Optional[str] = None
+
+    class Config:
+        env_prefix = "LANGFUSE_"
+        extra = "ignore"
+
+
+class ServerSettings(BaseSettings):
+    """서버 설정"""
+
+    # FastAPI 설정
+    host: str = "0.0.0.0"
+    port: int = 8000
+    reload: bool = True
+    debug: bool = True
+
+    # CORS 설정
+    cors_origins: List[str] = ["*"]
+    cors_allow_credentials: bool = True
+    cors_allow_methods: List[str] = ["*"]
+    cors_allow_headers: List[str] = ["*"]
+
+    # 세션 설정
+    session_timeout_minutes: int = 60
+    max_sessions: int = 1000
+
+    # 메시지 설정
+    max_message_length: int = 5000
+    max_history_per_session: int = 100
+
+    class Config:
+        env_prefix = "SERVER_"
+        extra = "ignore"
+
+
+class WorkflowSettings(BaseSettings):
+    """워크플로우 설정"""
+
+    # 에이전트 설정
+    default_agent_temperature: float = 0.2
+    supervisor_temperature: float = 0.1
+
+    # 검색 설정
+    default_search_limit: int = 5
+    max_search_limit: int = 20
+
+    # 승인 설정
+    approval_timeout_minutes: int = 30
+    max_pending_approvals: int = 100
+
+    class Config:
+        env_prefix = "WORKFLOW_"
+        extra = "ignore"
+
+
+class LoggingSettings(BaseSettings):
+    """로깅 설정"""
+
+    level: str = "INFO"
+    format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+    # 파일 로깅
+    log_to_file: bool = False
+    log_file_path: str = "logs/chatbot.log"
+    log_max_bytes: int = 10 * 1024 * 1024  # 10MB
+    log_backup_count: int = 5
+
+    # 외부 라이브러리 로깅 레벨
+    langchain_log_level: str = "WARNING"
+    google_log_level: str = "WARNING"
+
+    class Config:
+        env_prefix = "LOG_"
+        extra = "ignore"
+
+
+class Settings(BaseSettings):
+    """전체 애플리케이션 설정"""
+
+    # 앱 정보
+    app_name: str = "공구 챗봇 API"
+    app_version: str = "5.0.0-hitl"
+    description: str = "공구 검색부터 참여까지, 무엇이든 물어보세요!"
+
+    # 환경 설정
+    environment: str = "development"
+
+    # 하위 설정들
+    database: DatabaseSettings = DatabaseSettings()
+    google_cloud: GoogleCloudSettings = GoogleCloudSettings()
+    upstage: UpstageSettings = UpstageSettings()
+    langfuse: LangfuseSettings = LangfuseSettings()
+    server: ServerSettings = ServerSettings()
+    workflow: WorkflowSettings = WorkflowSettings()
+    logging: LoggingSettings = LoggingSettings()
+
+    @property
+    def is_development(self) -> bool:
+        return self.environment.lower() in ["dev", "development", "local"]
+
+    @property
+    def is_production(self) -> bool:
+        return self.environment.lower() in ["prod", "production"]
+
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        extra = "ignore"
+
+
+# 전역 설정 인스턴스
+settings = Settings()
+
+
+# 편의 함수들
+def get_settings() -> Settings:
+    """설정 인스턴스 반환"""
+    return settings
+
+
+def get_db_config() -> dict:
+    """데이터베이스 연결 설정 반환"""
+    return settings.database.connection_params
+
+
+def get_google_cloud_config() -> dict:
+    """Google Cloud 설정 반환"""
+    return {
+        "project": settings.google_cloud.project,
+        "location": settings.google_cloud.location,
+        "model_name": settings.google_cloud.model_name,
+        "temperature": settings.google_cloud.temperature,
+    }
+
+
+def get_upstage_config() -> dict:
+    """Upstage 설정 반환"""
+    return {
+        "api_key": settings.upstage.api_key,
+        "base_url": settings.upstage.base_url,
+        "model": settings.upstage.embedding_model,
+    }
+
+
+if __name__ == "__main__":
+    # 설정 테스트
+    print("🔧 설정 정보:")
+    print(f"  앱 이름: {settings.app_name}")
+    print(f"  버전: {settings.app_version}")
+    print(f"  환경: {settings.environment}")
+    print(f"  DB 호스트: {settings.database.host}")
+    print(f"  서버 포트: {settings.server.port}")
+    print(f"  구글 프로젝트: {settings.google_cloud.project}")
+    print(f"  개발 환경: {settings.is_development}")
