@@ -25,3 +25,4 @@ pytest-mock==3.14.0
 uvicorn[standard]
 pytest-asyncio
 asgi_lifespan
+langfuse==3.0.3

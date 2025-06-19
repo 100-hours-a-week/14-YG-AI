@@ -1,5 +1,4 @@
-
-from api.generate_post import generate_post_run
+from api.generate_post import run_generate_post
 import sys, asyncio, warnings
 
 # traceback을 아예 안 보여주도록 설정
@@ -9,7 +8,7 @@ sys.tracebacklimit = 0
 if __name__ == "__main__":
     input = {
         # 마프 오메가3
-        # "url": "https://www.myprotein.co.kr/p/sports-nutrition/essential-omega-3/10529329/",
+        "url": "https://www.myprotein.co.kr/p/sports-nutrition/essential-omega-3/10529329/",
         # 11번가 옥동자아이스크림
         # "url": "https://www.11st.co.kr/products/pa/5796843123"
         # 11번가 키위
@@ -29,7 +28,7 @@ if __name__ == "__main__":
         # 이마트 영양제
         # "url": "https://emart.ssg.com/item/itemView.ssg?itemId=1000686149754&siteNo=6001&salestrNo=6005"
     }
-    
+
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(generate_post_run(input))
+    loop.run_until_complete(run_generate_post(input))
     loop.close()
