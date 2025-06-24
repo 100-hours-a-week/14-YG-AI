@@ -65,7 +65,9 @@
             0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
             70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
             100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
-        }.chat-messages {
+        }
+
+        .chat-messages {
             flex: 1;
             padding: 20px;
             overflow-y: auto;
@@ -139,6 +141,7 @@
         .agent-badge.search { background: #17a2b8; }
         .agent-badge.participate { background: #ffc107; color: #333; }
         .agent-badge.system { background: #6c757d; }
+
         .approval-request {
             background: #fff3cd;
             border: 1px solid #ffeaa7;
@@ -232,6 +235,7 @@
             opacity: 0.6;
             cursor: not-allowed;
         }
+
         .typing-indicator {
             display: none;
             padding: 15px 20px;
@@ -286,17 +290,6 @@
             75% { transform: translateX(5px); }
         }
 
-        .session-info {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 10px;
-            font-size: 12px;
-            z-index: 1000;
-        }
         /* 공구 검색 결과 스타일 */
         .search-results {
             background: white;
@@ -384,6 +377,7 @@
             transform: translateY(-50%);
             z-index: 10;
         }
+
         .scroll-indicator {
             text-align: center;
             color: #666;
@@ -469,6 +463,7 @@
         .group-buy-card:hover .click-hint {
             opacity: 1;
         }
+
         /* 토스트 알림 스타일 */
         .toast {
             position: fixed;
@@ -557,6 +552,7 @@
             font-size: 11px;
             opacity: 0.9;
         }
+
         .card-stats {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -670,6 +666,7 @@
             display: block;
             font-size: 11px;
         }
+
         /* 반응형 디자인 */
         @media (max-width: 768px) {
             .group-buy-grid {
@@ -701,7 +698,22 @@
             .scroll-right {
                 right: -15px;
             }
+        }
 
+        .session-info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+
+        /* 반응형 디자인 */
+        @media (max-width: 768px) {
             .chat-container {
                 width: 100%;
                 height: 100vh;
@@ -765,6 +777,7 @@
             </div>
         </div>
     </div>
+
     <script>
         let sessionId = null;
         let isProcessing = false;
@@ -805,62 +818,6 @@
             });
         }
 
-        // ✨ 새로운 메시지 분리 함수
-        function separateContent(content) {
-            const startMarker = 'STRUCTURED_RESULT_START';
-            const endMarker = 'STRUCTURED_RESULT_END';
-            
-            const startIndex = content.indexOf(startMarker);
-            
-            if (startIndex === -1) {
-                // 구조화된 결과가 없으면 전체를 텍스트로 처리
-                return {
-                    textPart: content.trim(),
-                    structuredPart: null
-                };
-            }
-            
-            // 구조화된 결과 앞의 텍스트 추출
-            const textPart = content.substring(0, startIndex).trim();
-            
-            // 구조화된 결과 부분 추출
-            const structuredPart = content.substring(startIndex);
-            
-            return {
-                textPart: textPart || null,
-                structuredPart: structuredPart
-            };
-        }
-
-        // ✨ 혼합 컨텐츠 HTML 생성 함수
-        function createMixedContentHTML(textPart, structuredPart, agent, timeDisplay) {
-            let html = '';
-            
-            // 일반 텍스트 부분이 있으면 먼저 표시
-            if (textPart) {
-                html += `<div class="message-content">${textPart}</div>`;
-            }
-            
-            // 구조화된 결과 부분이 있으면 카드로 표시
-            if (structuredPart) {
-                const structuredContent = parseStructuredResult(structuredPart);
-                if (structuredContent) {
-                    html += structuredContent;
-                }
-            }
-            
-            // 메시지 정보 추가
-            const agentBadge = agent ? `<span class="agent-badge ${agent}">${getAgentDisplayName(agent)}</span>` : '';
-            html += `
-                <div class="message-info">
-                    ${agentBadge}
-                    <span>${timeDisplay}</span>
-                </div>
-            `;
-            
-            return html;
-        }
-        // ✨ 개선된 addMessage 함수 - 혼합 컨텐츠 지원
         function addMessage(content, type, agent = null, timestamp = null) {
             const messagesContainer = document.getElementById('chatMessages');
             const messageDiv = document.createElement('div');
@@ -869,19 +826,28 @@
             const agentBadge = agent ? `<span class="agent-badge ${agent}">${getAgentDisplayName(agent)}</span>` : '';
             const timeDisplay = timestamp || getCurrentTime();
             
-            // AI 메시지이고 구조화된 결과를 포함하는 경우
-            if (type === 'ai' && content.includes('STRUCTURED_RESULT_START')) {
-                console.log('🔍 혼합 컨텐츠 처리 시작');
-                
-                const { textPart, structuredPart } = separateContent(content);
-                console.log('📝 텍스트 부분:', textPart);
-                console.log('📊 구조화된 부분 존재:', !!structuredPart);
-                
-                const mixedHTML = createMixedContentHTML(textPart, structuredPart, agent, timeDisplay);
-                messageDiv.innerHTML = mixedHTML;
-            } 
-            // 일반 메시지 처리
-            else {
+            // 구조화된 검색 결과 처리
+            if (type === 'ai' && (agent === 'search_agent' || agent === 'search') && content.includes('STRUCTURED_RESULT_START')) {
+                const structuredContent = parseStructuredResult(content);
+                if (structuredContent) {
+                    messageDiv.innerHTML = `
+                        ${structuredContent}
+                        <div class="message-info">
+                            ${agentBadge}
+                            <span>${timeDisplay}</span>
+                        </div>
+                    `;
+                } else {
+                    // 구조화된 결과 파싱 실패시 일반 텍스트로 처리
+                    messageDiv.innerHTML = `
+                        <div class="message-content">${content}</div>
+                        <div class="message-info">
+                            ${agentBadge}
+                            <span>${timeDisplay}</span>
+                        </div>
+                    `;
+                }
+            } else {
                 messageDiv.innerHTML = `
                     <div class="message-content">${content}</div>
                     <div class="message-info">
@@ -899,10 +865,9 @@
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
-        // ✨ 개선된 parseStructuredResult 함수
         function parseStructuredResult(content) {
             try {
-                console.log('🔍 구조화된 결과 파싱 시도');
+                console.log('🔍 구조화된 결과 파싱 시도:', content.substring(0, 200) + '...');
                 
                 const startMarker = 'STRUCTURED_RESULT_START\n';
                 const endMarker = '\nSTRUCTURED_RESULT_END';
@@ -918,24 +883,19 @@
                 }
                 
                 const jsonStr = content.substring(startIndex + startMarker.length, endIndex);
-                console.log('📊 추출된 JSON 길이:', jsonStr.length);
-                
-                // JSON 파싱 전 기본 검증
-                if (!jsonStr.trim()) {
-                    console.log('❌ 빈 JSON 문자열');
-                    return null;
-                }
+                console.log('📊 추출된 JSON:', jsonStr.substring(0, 200) + '...');
                 
                 const data = JSON.parse(jsonStr);
-                console.log('✅ JSON 파싱 성공, 결과 개수:', data.results?.length || 0);
+                console.log('✅ JSON 파싱 성공:', data);
                 
                 return createSearchResultsHTML(data);
             } catch (error) {
                 console.error('❌ 구조화된 결과 파싱 오류:', error);
-                console.log('📄 파싱 시도한 컨텐츠:', content.substring(0, 200) + '...');
+                console.log('📄 원본 컨텐츠:', content);
                 return null;
             }
         }
+
         function createSearchResultsHTML(data) {
             if (!data.results || data.results.length === 0) {
                 return `
@@ -993,6 +953,7 @@
                                 <div class="stat-value">${item.left_amount}개</div>
                             </div>
                         </div>
+                        
                         <div class="card-dates">
                             <div class="date-item">
                                 <div class="date-label">📅 마감일</div>
@@ -1052,6 +1013,7 @@
                 </div>
             `;
         }
+
         // 📱 카드 스크롤 함수
         function scrollCards(scrollId, direction) {
             const container = document.getElementById(scrollId);
@@ -1125,6 +1087,7 @@
             };
             return agentNames[agent] || agent;
         }
+
         function showTypingIndicator() {
             document.getElementById('typingIndicator').style.display = 'block';
             const messagesContainer = document.getElementById('chatMessages');
@@ -1199,6 +1162,7 @@
             messagesContainer.insertBefore(errorDiv, typingIndicator);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
+
         async function sendMessage() {
             if (isProcessing) return;
             
@@ -1369,6 +1333,20 @@
             }
         });
 
+        // 페이지 언로드 시 정리
+        window.addEventListener('beforeunload', function() {
+            // 필요시 정리 작업
+        });
+
+        // 예시 메시지 버튼들 (선택사항)
+        function sendExampleMessage(message) {
+            if (isProcessing) return;
+            
+            const messageInput = document.getElementById('messageInput');
+            messageInput.value = message;
+            sendMessage();
+        }
+
         // 연결 상태 모니터링
         function checkConnection() {
             fetch('/health')
@@ -1383,11 +1361,9 @@
                     document.querySelector('.status-indicator').style.background = '#f44336';
                 });
         }
-        
 
         // 주기적으로 연결 상태 확인
         setInterval(checkConnection, 30000);
-
     </script>
 </body>
 </html>
