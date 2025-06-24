@@ -7,8 +7,6 @@ import json
 from typing import List, Optional, Dict, Tuple
 from datetime import datetime, timedelta
 from langchain_core.tools import tool
-from langchain_google_vertexai import ChatVertexAI
-from langchain_core.messages import SystemMessage, HumanMessage
 from openai import AsyncOpenAI
 from config.settings import settings
 
@@ -19,22 +17,12 @@ logging.getLogger("langchain_google_vertexai").setLevel(logging.WARNING)
 logging.getLogger("google").setLevel(logging.WARNING)
 logging.getLogger("langchain_core").setLevel(logging.WARNING)
 
+
 # Upstage 임베딩 클라이언트 (설정 클래스 사용)
 async_openai_client = AsyncOpenAI(
     api_key=settings.upstage.api_key,
     base_url=settings.upstage.base_url,
 )
-
-
-# Google Vertex AI 클라이언트 (LLM용)
-def get_vertex_ai_client(temp: float = 0.0):
-    """Vertex AI 클라이언트 생성"""
-    return ChatVertexAI(
-        model_name=settings.google_cloud.model_name,
-        temperature=temp,
-        project=settings.google_cloud.project,
-        location=settings.google_cloud.location,
-    )
 
 
 async def embed_text_async(text: str) -> List[float]:
@@ -72,221 +60,6 @@ async def embed_text_async(text: str) -> List[float]:
 
     except Exception as e:
         raise RuntimeError(f"임베딩 실패: {e}")
-
-
-async def boolean_filter_results_with_llm(
-    query: str,
-    rows: List[Tuple],
-    cols: List[str],
-    conditions: Dict,
-    vertex_ai_client: ChatVertexAI,
-) -> Tuple[List[Tuple], Dict]:
-    """
-    Boolean 방식 LLM 필터링 - 각 공구마다 True/False 판단
-
-    Returns:
-        Tuple[필터링된 결과, 분석 정보]
-    """
-
-    if not rows:
-        return rows, {"filter_applied": False, "reasoning": "검색 결과 없음"}
-
-    print(f"\n🤖 Boolean LLM 필터링 시작: {len(rows)}개 공구 평가")
-
-    try:
-        # 1. 각 공구 정보를 명확하게 정리
-        items_for_evaluation = []
-        for i, row in enumerate(rows):
-            item = dict(zip(cols, row))
-
-            # 평가용 공구 정보 (명확하고 간단하게)
-            item_info = {
-                "index": i,
-                "title": str(item.get("title", "")).strip(),
-                "product_name": str(item.get("name", "")).strip(),
-                "unit_price": (
-                    int(item.get("unit_price", 0)) if item.get("unit_price") else 0
-                ),
-                "left_amount": (
-                    int(item.get("left_amount", 0)) if item.get("left_amount") else 0
-                ),
-            }
-            items_for_evaluation.append(item_info)
-
-        # 2. Boolean 평가용 프롬프트 구성
-        system_prompt = """당신은 공동구매 상품 평가 전문가입니다.
-
-사용자의 요구사항과 각 공구 상품을 비교하여, 각 상품이 사용자에게 적합한지 True/False로 판단해주세요.
-
-평가 기준:
-1. 제품명/제목이 사용자 요구와 관련이 있는가?
-2. 가격이 적절한가?
-3. 재고가 있는가? (left_amount > 0)
-
-중요: 각 상품마다 정확히 True 또는 False로만 답변하세요.
-
-응답 형식 (JSON):
-{
-  "evaluations": [true, false, true, false, true],
-  "reasoning": "간단한 평가 이유"
-}
-
-evaluations 배열의 순서는 입력된 상품 순서와 정확히 일치해야 합니다."""
-
-        # 3. 사용자 요구사항과 상품 목록 구성
-        user_prompt = f"""사용자 요구사항: "{query}"
-
-평가할 공구 목록:
-"""
-
-        for i, item in enumerate(items_for_evaluation):
-            user_prompt += f"{i}. 제목: {item['title']}\n"
-            user_prompt += f"   상품명: {item['product_name']}\n"
-            user_prompt += f"   가격: {item['unit_price']:,}원\n"
-            user_prompt += f"   재고: {item['left_amount']}개\n\n"
-
-        user_prompt += f"\n각 상품({len(items_for_evaluation)}개)이 사용자 요구사항 '{query}'에 적합한지 순서대로 True/False로 평가해주세요."
-
-        # 4. LLM API 호출
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt),
-        ]
-
-        response = await vertex_ai_client.ainvoke(messages)
-        response_text = response.content
-
-        print(f"🤖 LLM 평가 응답: {response_text[:200]}...")
-
-        # 5. Boolean 응답 파싱
-        try:
-            # JSON 부분 추출
-            json_start = response_text.find("{")
-            json_end = response_text.rfind("}") + 1
-            if json_start != -1 and json_end > json_start:
-                json_text = response_text[json_start:json_end]
-                llm_result = json.loads(json_text)
-            else:
-                # JSON이 없으면 직접 파싱 시도
-                raise json.JSONDecodeError("JSON 형식 아님", response_text, 0)
-
-            evaluations = llm_result.get("evaluations", [])
-            reasoning = llm_result.get("reasoning", "평가 완료")
-
-            # 6. 평가 결과 검증
-            if len(evaluations) != len(rows):
-                print(f"⚠️ 평가 개수 불일치: 예상 {len(rows)}, 실제 {len(evaluations)}")
-                # 길이가 맞지 않으면 원본 반환
-                return rows, {"filter_applied": False, "reasoning": "평가 개수 불일치"}
-
-            # 7. Boolean 필터링 적용
-            filtered_rows = []
-            true_count = 0
-            false_count = 0
-
-            for i, (row, is_suitable) in enumerate(zip(rows, evaluations)):
-                if isinstance(is_suitable, bool) and is_suitable:
-                    filtered_rows.append(row)
-                    true_count += 1
-                else:
-                    false_count += 1
-                    # 디버깅용 로그
-                    item = dict(zip(cols, row))
-                    print(f"   ❌ 제외: {item.get('title', '')[:30]}...")
-
-            print(f"📊 Boolean 필터링 결과:")
-            print(f"   ✅ 적합: {true_count}개")
-            print(f"   ❌ 부적합: {false_count}개")
-            print(f"   📝 이유: {reasoning}")
-
-            # 8. 분석 정보 구성
-            analysis_info = {
-                "filter_applied": true_count
-                < len(rows),  # 필터링이 실제로 적용되었는지
-                "confidence": 0.9,  # Boolean 방식이라 높은 신뢰도
-                "reasoning": reasoning,
-                "user_intent": f"총 {len(rows)}개 중 {true_count}개가 요구사항에 적합",
-                "suggestions": "",
-                "original_count": len(rows),
-                "filtered_count": len(filtered_rows),
-                "evaluation_details": {
-                    "suitable_count": true_count,
-                    "unsuitable_count": false_count,
-                    "evaluations": evaluations,  # 디버깅용
-                },
-            }
-
-            # 9. 결과가 너무 적으면 경고
-            if len(filtered_rows) == 0:
-                print("⚠️ 모든 상품이 부적합으로 판단됨 - 원본 결과 일부 반환")
-                # 전체 제외는 위험하므로 최소 1-2개는 반환
-                filtered_rows = rows[:2]
-                analysis_info["reasoning"] += " (안전을 위해 일부 결과 포함)"
-
-            return filtered_rows, analysis_info
-
-        except json.JSONDecodeError as e:
-            print(f"⚠️ LLM 응답 파싱 실패: {e}")
-            print(f"원본 응답: {response_text}")
-
-            # 파싱 실패 시 간단한 패턴 매칭 시도
-            return try_simple_boolean_parsing(response_text, rows, cols)
-
-    except Exception as e:
-        print(f"💥 Boolean LLM 필터링 중 오류: {e}")
-        return rows, {"filter_applied": False, "reasoning": f"오류: {e}"}
-
-
-def try_simple_boolean_parsing(
-    response_text: str, rows: List[Tuple], cols: List[str]
-) -> Tuple[List[Tuple], Dict]:
-    """JSON 파싱 실패 시 간단한 Boolean 패턴 매칭"""
-
-    try:
-        print("🔄 간단한 Boolean 패턴 매칭 시도...")
-
-        # true/false 패턴 찾기
-        import re
-
-        # 다양한 패턴으로 boolean 값들 찾기
-        boolean_patterns = [
-            r"\[(true|false)(?:,\s*(true|false))*\]",  # [true, false, true]
-            r"(true|false)(?:,\s*(true|false))*",  # true, false, true
-        ]
-
-        boolean_values = []
-
-        for pattern in boolean_patterns:
-            matches = re.findall(pattern, response_text.lower())
-            if matches:
-                # 첫 번째 매치에서 boolean 값들 추출
-                match_text = (
-                    matches[0] if isinstance(matches[0], str) else str(matches[0])
-                )
-                boolean_strs = re.findall(r"(true|false)", match_text)
-                boolean_values = [s == "true" for s in boolean_strs]
-                break
-
-        if boolean_values and len(boolean_values) == len(rows):
-            print(f"✅ 패턴 매칭 성공: {len(boolean_values)}개 평가")
-
-            filtered_rows = [
-                row for row, is_suitable in zip(rows, boolean_values) if is_suitable
-            ]
-
-            return filtered_rows, {
-                "filter_applied": True,
-                "confidence": 0.7,  # 패턴 매칭이라 신뢰도 낮춤
-                "reasoning": "패턴 매칭으로 필터링 적용",
-                "original_count": len(rows),
-                "filtered_count": len(filtered_rows),
-            }
-
-    except Exception as e:
-        print(f"패턴 매칭도 실패: {e}")
-
-    # 모든 방법 실패 시 원본 반환
-    return rows, {"filter_applied": False, "reasoning": "Boolean 파싱 완전 실패"}
 
 
 def parse_user_query(query: str) -> Dict:
@@ -336,14 +109,16 @@ def parse_user_query(query: str) -> Dict:
             except:
                 pass
 
-    # 2. 가격 조건 추출
+    # 2. 가격 조건 추출 (우선순위 순서 중요!)
     price_patterns = [
+        # "보다 비싼/보다 싼" (가장 구체적)
         (r"(\d+)\s*천원?\s*보다\s*(비싼|큰)", "min_1k_exclusive"),
         (r"(\d+)\s*천원?\s*보다\s*(싼|작은)", "max_1k_exclusive"),
         (r"(\d+)\s*만원?\s*보다\s*(비싼|큰)", "min_10k_exclusive"),
         (r"(\d+)\s*만원?\s*보다\s*(싼|작은)", "max_10k_exclusive"),
         (r"(\d+)\s*원?\s*보다\s*(비싼|큰)", "min_exclusive"),
         (r"(\d+)\s*원?\s*보다\s*(싼|작은)", "max_exclusive"),
+        # "이상/이하/미만"
         (r"(\d+)\s*천원?\s*이상", "min_1k"),
         (r"(\d+)\s*천원?\s*이하", "max_1k"),
         (r"(\d+)\s*천원?\s*미만", "max_1k_exclusive"),
@@ -359,6 +134,7 @@ def parse_user_query(query: str) -> Dict:
         (r"(\d+)\s*원?\s*미만", "max_exclusive"),
         (r"최소\s*(\d+)\s*원?", "min"),
         (r"최대\s*(\d+)\s*원?", "max"),
+        # 단독 숫자+단위 (마지막, 이하로 간주)
         (r"(\d+)\s*천원?(?=\s|$)", "max_1k"),
         (r"(\d+)\s*만원?(?=\s|$)", "max_10k"),
     ]
@@ -368,7 +144,7 @@ def parse_user_query(query: str) -> Dict:
         if match:
             price_value = int(match.group(1))
 
-            # 가격 변환 매핑
+            # 가격 변환
             price_map = {
                 "min_10k": lambda x: setattr(conditions, "min_price", x * 10000),
                 "min_10k_exclusive": lambda x: setattr(
@@ -408,7 +184,72 @@ def parse_user_query(query: str) -> Dict:
         conditions["price_type"] = "unit"
         print(f"   💵 가격 타입: 개당")
 
-    # 4. 검색 타입 결정
+    # 4. 상태 조건
+    if any(word in query for word in ["마감된", "종료된", "끝난"]):
+        conditions["post_status"] = "CLOSED" if "마감된" in query else "ENDED"
+        print(f"   🔒 상태: {conditions['post_status']} (이미 마감/종료)")
+    elif any(word in query for word in ["마감인", "마감되는", "마감 예정"]):
+        conditions["post_status"] = "OPEN"
+        print(f"   🔒 상태: OPEN (마감 예정)")
+
+    # 5. 날짜 조건
+    date_patterns = [
+        (r"오늘\s*(마감인|마감되는|마감)", lambda: f"DATE(due_date) = '{today}'"),
+        (r"내일\s*(마감인|마감되는|마감)", lambda: f"DATE(due_date) = '{tomorrow}'"),
+        (
+            r"이번\s*주\s*(안에|내에)?\s*(마감인|마감되는|마감)",
+            lambda: f"DATE(due_date) BETWEEN '{today}' AND '{today + timedelta(days=6-today.weekday())}'",
+        ),
+        (
+            r"(\d+)일\s*(이내|안에|내에)\s*(마감인|마감되는|마감)",
+            lambda m: f"DATE(due_date) BETWEEN '{today}' AND '{today + timedelta(days=int(m.group(1)))}'",
+        ),
+        (r"오늘\s*(픽업|받는)", lambda: f"DATE(pickup_date) = '{today}'"),
+        (r"내일\s*(픽업|받는)", lambda: f"DATE(pickup_date) = '{tomorrow}'"),
+        (
+            r"다음\s*주\s*(픽업|받는)",
+            lambda: f"DATE(pickup_date) BETWEEN '{today + timedelta(days=7-today.weekday())}' AND '{today + timedelta(days=13-today.weekday())}'",
+        ),
+        (
+            r"이번\s*주\s*(픽업|받는)",
+            lambda: f"DATE(pickup_date) BETWEEN '{today}' AND '{today + timedelta(days=6-today.weekday())}'",
+        ),
+    ]
+
+    for pattern, date_func in date_patterns:
+        match = re.search(pattern, query)
+        if match:
+            if "마감" in pattern:
+                conditions["due_date_filter"] = (
+                    date_func(match) if callable(date_func) else date_func()
+                )
+                conditions["post_status"] = "OPEN"
+                print(f"   📅 마감일 조건 설정")
+            else:
+                conditions["pickup_date_filter"] = (
+                    date_func(match) if callable(date_func) else date_func()
+                )
+                print(f"   📦 픽업일 조건 설정")
+            break
+
+    # 6. 정렬 조건
+    sort_keywords = {
+        ("제일 싼", "가장 싼", "최저가", "저렴한"): ("price", "ASC"),
+        ("제일 비싼", "가장 비싼", "최고가", "비싼"): ("price", "DESC"),
+        ("인기", "많이 본", "조회수 높은"): ("view_count", "DESC"),
+        ("관심 많은", "관심 높은"): ("wish_count", "DESC"),
+        ("참여 많은", "참여자 많은"): ("participant_count", "DESC"),
+        ("최신", "새로운", "방금 올라온"): ("created_at", "DESC"),
+    }
+
+    for keywords, (sort_col, sort_ord) in sort_keywords.items():
+        if any(keyword in query for keyword in keywords):
+            conditions["sort_by"] = sort_col
+            conditions["sort_order"] = sort_ord
+            print(f"   📈 정렬: {sort_col} {sort_ord}")
+            break
+
+    # 7. 검색 타입 결정
     specific_products = [
         "콜라",
         "펩시",
@@ -533,15 +374,13 @@ def build_sql_query(
     return sql, select_clause
 
 
-# 기존 함수를 Boolean 방식으로 교체
-async def format_search_results_structured(
-    rows, cols, conditions: Dict, query: str
-) -> str:
-    """Boolean LLM 필터링이 적용된 결과 포맷팅"""
+def format_search_results_structured(rows, cols, conditions: Dict, query: str) -> str:
+    """검색 결과를 구조화된 JSON으로 포맷팅"""
 
     import json
 
     if not rows:
+        # 결과가 없는 경우
         empty_result = {
             "search_type": get_search_type_display(conditions["search_type"]),
             "query": query,
@@ -551,39 +390,13 @@ async def format_search_results_structured(
         json_result = json.dumps(empty_result, ensure_ascii=False, indent=2)
         return f"STRUCTURED_RESULT_START\n{json_result}\nSTRUCTURED_RESULT_END"
 
-    # LLM으로 결과 필터링 - Boolean 방식으로 변경!
-    print(f"\n🛒 검색 결과 전처리: {len(rows)}개")
-
-    try:
-        # Vertex AI 클라이언트 생성
-        vertex_ai_client = get_vertex_ai_client(temp=0.1)
-
-        # Boolean 방식 LLM 필터링 적용
-        filtered_rows, analysis_info = await boolean_filter_results_with_llm(
-            query, rows, cols, conditions, vertex_ai_client
-        )
-
-        print(f"🧠 Boolean LLM 필터링 완료:")
-        print(f"   원본: {analysis_info.get('original_count', len(rows))}개")
-        print(
-            f"   필터링 후: {analysis_info.get('filtered_count', len(filtered_rows))}개"
-        )
-        print(f"   신뢰도: {analysis_info.get('confidence', 0):.2f}")
-        print(f"   사용자 의도: {analysis_info.get('user_intent', '파악 안됨')}")
-
-        # 필터링된 결과 사용
-        final_rows = filtered_rows
-
-    except Exception as e:
-        print(f"⚠️ LLM 필터링 실패, 원본 결과 사용: {e}")
-        final_rows = rows
-        analysis_info = {"filter_applied": False, "reasoning": f"오류: {e}"}
-
-    print(f"\n🛒 구조화된 검색 결과 생성: {len(final_rows)}개")
+    # 결과가 있는 경우
+    #TODO: LLM으로 rows가 사용자의 쿼리에 알맞은 결과인지 판단한 다음 알맞은 공구만 전달하는 로직 구현
+    print(f"\n🛒 구조화된 검색 결과 생성: {len(rows)}개")
 
     # DB 결과를 웹 UI용 형태로 변환
     results = []
-    for row in final_rows:
+    for row in rows:
         item = dict(zip(cols, row))
 
         # 안전한 데이터 변환
@@ -645,21 +458,12 @@ async def format_search_results_structured(
     # 검색 타입에 따른 표시명
     search_type_display = get_search_type_display(conditions["search_type"])
 
-    # 구조화된 결과 생성 (LLM 분석 정보 포함)
+    # 구조화된 결과 생성
     search_result = {
         "search_type": search_type_display,
         "query": query,
         "total_count": len(results),
         "results": results,
-        # LLM 분석 정보 추가
-        "analysis": {
-            "filter_applied": analysis_info.get("filter_applied", False),
-            "confidence": analysis_info.get("confidence", 0),
-            "user_intent": analysis_info.get("user_intent", ""),
-            "reasoning": analysis_info.get("reasoning", ""),
-            "suggestions": analysis_info.get("suggestions", ""),
-            "original_count": analysis_info.get("original_count", len(results)),
-        },
     }
 
     # JSON 형태로 반환
@@ -669,13 +473,6 @@ async def format_search_results_structured(
     print(f"📦 구조화된 결과 생성 완료")
     print(f"   📊 JSON 데이터 크기: {len(json_result)} 문자")
     print(f"   🎯 전체 결과 크기: {len(final_result)} 문자")
-
-    # LLM 분석 결과 로깅
-    if analysis_info.get("filter_applied"):
-        print(f"   🧠 LLM 필터링: {analysis_info.get('confidence', 0):.2f} 신뢰도")
-        print(
-            f"   💡 사용자 의도: {analysis_info.get('user_intent', '파악 안됨')[:50]}..."
-        )
 
     return final_result
 
@@ -688,6 +485,50 @@ def get_search_type_display(search_type: str) -> str:
         "condition_only": "📋 조건 검색",
     }
     return search_type_map.get(search_type, "🔍 검색")
+
+
+def format_search_results_text(rows, cols, conditions: Dict) -> str:
+    """검색 결과를 기존 텍스트 형태로 포맷팅 (폴백용)"""
+
+    if not rows:
+        return "검색 조건에 맞는 공구를 찾을 수 없습니다."
+
+    print(f"\n🛒 검색 결과: {len(rows)}개")
+
+    results = []
+    for i, row in enumerate(rows, 1):
+        item = dict(zip(cols, row))
+
+        # 가격 정보
+        if conditions["price_type"] == "total":
+            price_str = f"총 {item.get('price', 0):,}원"
+        else:
+            price_str = f"개당 {item.get('unit_price', 0):,}원"
+
+        # 결과 라인 구성
+        title = item.get("title", "제목 없음")
+        result_line = f"{i}. {title} - {price_str}"
+
+        # 잔여 수량
+        left_amount = item.get("left_amount")
+        total_amount = item.get("total_amount")
+        if left_amount is not None and total_amount:
+            result_line += f" (잔여: {left_amount}/{total_amount})"
+
+        # 마감일
+        due_date = item.get("due_date")
+        if due_date:
+            result_line += f" (마감: {due_date})"
+
+        # 유사도 (벡터 검색 시)
+        if "similarity" in item and item["similarity"] is not None:
+            result_line += f" [유사도: {item['similarity']:.3f}]"
+
+        results.append(result_line)
+
+    # 헤더
+    header = get_search_type_display(conditions["search_type"])
+    return f"{header} 결과:\n\n" + "\n".join(results)
 
 
 @tool
@@ -739,10 +580,10 @@ async def search_group_buy(query: str) -> str:
         cols = [c[0] for c in cur.description]
         rows = cur.fetchall()
 
-        print(f"\n✅ DB 검색 완료: {len(rows)}개")
+        print(f"\n✅ 검색 완료: {len(rows)}개")
 
-        # 5. LLM 필터링이 포함된 구조화된 결과 반환
-        result = await format_search_results_structured(rows, cols, conditions, query)
+        # 구조화된 결과 반환
+        result = format_search_results_structured(rows, cols, conditions, query)
 
         # 디버깅 로그
         print(
@@ -767,3 +608,33 @@ async def search_group_buy(query: str) -> str:
         }
         json_result = json.dumps(error_result, ensure_ascii=False, indent=2)
         return f"STRUCTURED_RESULT_START\n{json_result}\nSTRUCTURED_RESULT_END"
+
+
+# 테스트용 메인 함수
+async def main():
+    """테스트용 메인 함수"""
+    print("🚀 공구 검색 도구 테스트...")
+
+    test_queries = [
+        "콜라 공구 있어?",
+        "천원 이하 간식 추천해줘",
+        "이클립스 제일 싼 거",
+        "간식 두 개만",
+    ]
+
+    for query in test_queries:
+        print(f"\n🔍 테스트 쿼리: '{query}'")
+        print("=" * 50)
+
+        try:
+            result = await search_group_buy(query)
+            print("결과:")
+            print(result)
+        except Exception as e:
+            print(f"오류: {e}")
+
+        print("=" * 50)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

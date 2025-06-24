@@ -5,6 +5,9 @@
 __pycache__/
 *.py[cod]
 *$py.class
+sync_embedding_processor.py
+v1/venv-v1
+v1/venv
 
 # 빌드 아티팩트
 *.so

@@ -20,7 +20,7 @@ class DatabaseSettings(BaseSettings):
     dbname: str = "test"
 
     # 벡터 DB 관련
-    vector_dimension: int = 1024
+    vector_dimension: int = 4096
 
     @property
     def connection_params(self) -> dict:
@@ -64,7 +64,7 @@ class GoogleCloudSettings(BaseSettings):
 class UpstageSettings(BaseSettings):
     """Upstage API 설정"""
 
-    api_key: str
+    api_key: str = os.getenv("UPSTAGE_API_KEY")
     base_url: str = "https://api.upstage.ai/v1"
     embedding_model: str = "embedding-query"
 
@@ -80,6 +80,38 @@ class LangfuseSettings(BaseSettings):
     public_key: Optional[str] = None
     secret_key: Optional[str] = None
     host: Optional[str] = None
+
+    # 추가 설정들 (타입 수정)
+    debug: bool = False
+    flush_at: int = 15  # 자동 flush할 이벤트 수
+    flush_interval: float = 0.5  # flush 간격 (초) - float로 명시
+    request_timeout: int = 10  # 요청 타임아웃 (초)
+
+    # 트레이싱 설정
+    trace_sampling_rate: float = 1.0  # 샘플링 비율 (0.0-1.0)
+    session_max_events: int = 1000  # 세션당 최대 이벤트 수
+
+    @property
+    def is_configured(self) -> bool:
+        """Langfuse가 제대로 설정되었는지 확인"""
+        return (
+            self.enabled and self.public_key is not None and self.secret_key is not None
+        )
+
+    @property
+    def client_config(self) -> dict:
+        """Langfuse 클라이언트 설정 반환"""
+        config = {
+            "debug": self.debug,
+            "flush_at": self.flush_at,
+            "flush_interval": self.flush_interval,
+            "request_timeout": self.request_timeout,
+        }
+
+        if self.host:
+            config["host"] = self.host
+
+        return config
 
     class Config:
         env_prefix = "LANGFUSE_"

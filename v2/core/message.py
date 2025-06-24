@@ -5,10 +5,9 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
-from langfuse import get_client
 from langfuse.langchain import CallbackHandler
 
-from config import settings
+from config.settings import settings
 from utils import (
     basemessage_to_dict,
     truncate_content,
@@ -20,7 +19,24 @@ from .session import (
 )
 
 logger = logging.getLogger(__name__)
-langfuse = get_client()
+
+
+def get_langfuse_client():
+    """설정에 따른 Langfuse 클라이언트 반환"""
+    if not settings.langfuse.is_configured:
+        logger.warning("Langfuse가 설정되지 않음 - 트레이싱 비활성화")
+        return None
+
+    try:
+        from langfuse import get_client
+
+        return get_client(**settings.langfuse.client_config)
+    except Exception as e:
+        logger.error(f"Langfuse 클라이언트 초기화 실패: {e}")
+        return None
+
+
+langfuse = get_langfuse_client()
 
 
 class MessageProcessor:
@@ -39,6 +55,7 @@ class MessageProcessor:
             supervisor_app = create_supervisor_workflow()
 
         self.supervisor_app = supervisor_app
+        self.langfuse_enabled = settings.langfuse.is_configured
 
     async def process_user_message(
         self, message: str, session_id: str
@@ -111,7 +128,7 @@ class MessageProcessor:
 
     async def _execute_workflow(self, message: str, session_id: str) -> Dict[str, Any]:
         """
-        LangGraph 워크플로우 실행
+        LangGraph 워크플로우 실행 (Langfuse 설정 개선)
 
         Args:
             message: 사용자 메시지
@@ -129,6 +146,25 @@ class MessageProcessor:
             f"[내용: {truncate_content(message, 50)}]"
         )
 
+        # Langfuse 트레이싱 (조건부)
+        if self.langfuse_enabled and langfuse:
+            return await self._execute_with_tracing(
+                message, session_id, conversation_history, initial_message_count
+            )
+        else:
+            return await self._execute_without_tracing(
+                message, session_id, conversation_history, initial_message_count
+            )
+
+    async def _execute_with_tracing(
+        self,
+        message: str,
+        session_id: str,
+        conversation_history: List,
+        initial_message_count: int,
+    ) -> Dict[str, Any]:
+        """Langfuse 트레이싱과 함께 워크플로우 실행"""
+
         # LangFuse 트레이싱을 위한 span 생성
         with langfuse.start_as_current_span(
             name="chat-message",
@@ -145,92 +181,148 @@ class MessageProcessor:
                     "message_count": len(conversation_history),
                     "timestamp": datetime.now().isoformat(),
                     "message_length": len(message),
+                    "environment": settings.environment,
                 },
             )
-
-            # 워크플로우 입력 구성
-            workflow_input = {
-                "messages": conversation_history,
-                "next_agent": "supervisor",
-                "human_approval_required": False,
-                "human_approved": False,
-                "current_task": None,
-                "approval_id": None,
-                "session_id": session_id,
-                "user_id": (
-                    session_id.split("-")[0] if "-" in session_id else session_id
-                ),
-            }
-
-            # LangChain 콜백 핸들러 생성
-            langfuse_handler = CallbackHandler()
 
             # 워크플로우 실행
-            final_state = await self.supervisor_app.ainvoke(
-                workflow_input,
-                config={
-                    "callbacks": [langfuse_handler],
-                    "metadata": {"session_id": session_id},
-                },
-            )
-
-            # 결과 처리
-            if not final_state or not final_state.get("messages"):
-                return {
-                    "success": False,
-                    "error": "워크플로우가 응답을 생성하지 못했습니다.",
-                    "new_messages": [],
-                }
-
-            new_history = final_state["messages"]
-            new_messages = new_history[initial_message_count:]
-
-            # 새 메시지들을 세션에 추가
-            for new_msg in new_messages:
-                add_message_to_session(session_id, new_msg)
-
-            logger.info(
-                f"✅ 워크플로우 완료 [세션: {session_id[:8]}...] "
-                f"[신규 응답: {len(new_messages)}개]"
+            result = await self._run_workflow(
+                message, session_id, conversation_history, initial_message_count, span
             )
 
             # span의 최종 output 업데이트
-            span.update(
-                output={
-                    "ai_response": (new_messages[-1].content if new_messages else ""),
-                    "response_count": len(new_messages),
-                }
+            if result.get("success") and result.get("new_messages"):
+                last_message = (
+                    result["new_messages"][-1].get("content", "")
+                    if result["new_messages"]
+                    else ""
+                )
+                span.update(
+                    output={
+                        "ai_response": last_message,
+                        "response_count": len(result["new_messages"]),
+                        "success": result["success"],
+                    }
+                )
+
+            return result
+
+    async def _execute_without_tracing(
+        self,
+        message: str,
+        session_id: str,
+        conversation_history: List,
+        initial_message_count: int,
+    ) -> Dict[str, Any]:
+        """트레이싱 없이 워크플로우 실행"""
+        logger.info("트레이싱 없이 워크플로우 실행")
+        return await self._run_workflow(
+            message, session_id, conversation_history, initial_message_count, None
+        )
+
+    async def _run_workflow(
+        self,
+        message: str,
+        session_id: str,
+        conversation_history: List,
+        initial_message_count: int,
+        span=None,
+    ) -> Dict[str, Any]:
+        """공통 워크플로우 실행 로직"""
+
+        # 워크플로우 입력 구성
+        workflow_input = {
+            "messages": conversation_history,
+            "next_agent": "supervisor",
+            "human_approval_required": False,
+            "human_approved": False,
+            "current_task": None,
+            "approval_id": None,
+            "session_id": session_id,
+            "user_id": (session_id.split("-")[0] if "-" in session_id else session_id),
+        }
+
+        # 콜백 핸들러 설정
+        config = {"metadata": {"session_id": session_id}}
+
+        if self.langfuse_enabled and langfuse:
+            try:
+                langfuse_handler = CallbackHandler(**settings.langfuse.client_config)
+                config["callbacks"] = [langfuse_handler]
+            except Exception as e:
+                logger.warning(f"Langfuse 콜백 핸들러 생성 실패: {e}")
+
+        # 워크플로우 실행
+        try:
+            final_state = await self.supervisor_app.ainvoke(
+                workflow_input, config=config
             )
-
-            # 메시지들을 딕셔너리 형태로 변환 및 승인 처리
-            processed_messages = []
-            for new_msg in new_messages:
-                if isinstance(new_msg, AIMessage):
-                    processed_msg = self._process_ai_message(
-                        new_msg, session_id, final_state, span
-                    )
-                    processed_messages.append(processed_msg)
-                elif isinstance(new_msg, HumanMessage):
-                    processed_msg = basemessage_to_dict(new_msg)
-                    processed_messages.append(processed_msg)
-
+        except Exception as e:
+            logger.error(f"워크플로우 실행 중 오류: {e}")
             return {
-                "success": True,
-                "new_messages": processed_messages,
-                "total_messages": len(conversation_history),
+                "success": False,
+                "error": f"워크플로우 실행 중 오류가 발생했습니다: {str(e)}",
+                "new_messages": [],
             }
 
+        # 결과 처리
+        if not final_state or not final_state.get("messages"):
+            return {
+                "success": False,
+                "error": "워크플로우가 응답을 생성하지 못했습니다.",
+                "new_messages": [],
+            }
+
+        return await self._process_workflow_result(
+            final_state, initial_message_count, session_id, span
+        )
+
+    async def _process_workflow_result(
+        self, final_state: Dict, initial_message_count: int, session_id: str, span=None
+    ) -> Dict[str, Any]:
+        """워크플로우 결과 처리"""
+
+        new_history = final_state["messages"]
+        new_messages = new_history[initial_message_count:]
+
+        # 새 메시지들을 세션에 추가
+        for new_msg in new_messages:
+            add_message_to_session(session_id, new_msg)
+
+        logger.info(
+            f"✅ 워크플로우 완료 [세션: {session_id[:8]}...] "
+            f"[신규 응답: {len(new_messages)}개]"
+        )
+
+        # 메시지들을 딕셔너리 형태로 변환 및 승인 처리
+        processed_messages = []
+        for new_msg in new_messages:
+            if isinstance(new_msg, AIMessage):
+                processed_msg = self._process_ai_message(
+                    new_msg, session_id, final_state, span
+                )
+                processed_messages.append(processed_msg)
+            elif isinstance(new_msg, HumanMessage):
+                processed_msg = basemessage_to_dict(new_msg)
+                processed_messages.append(processed_msg)
+
+        return {
+            "success": True,
+            "new_messages": processed_messages,
+            "total_messages": len(new_history),
+        }
+
     def _process_ai_message(
-        self, message: AIMessage, session_id: str, final_state: Dict, span
+        self, message: AIMessage, session_id: str, final_state: Dict, span=None
     ) -> Dict[str, Any]:
         """
-        AI 메시지 처리 및 승인 요청 처리
+        AI 메시지 처리 및 승인 요청 처리 (Langfuse 설정 개선)
 
         Args:
             message: AI 메시지
             session_id: 세션 ID
             final_state: 워크플로우 최종 상태
-            span: LangFuse span
+            span: LangFuse span (선택적)
 
         Returns:
             Dict[str, Any]: 처리된 메시지 데이터
@@ -238,20 +330,28 @@ class MessageProcessor:
         response_dict = basemessage_to_dict(message)
         agent_name = response_dict.get("agent", "unknown_agent")
 
-        # LangFuse에 generation 기록
-        with langfuse.start_as_current_generation(
-            name=agent_name,
-        ) as generation:
-            generation.update(
-                name=agent_name,
-                input=session_id,  # 임시로 세션 ID 사용
-                output=message.content,
-                model=settings.google_cloud.model_name,
-                metadata=response_dict,
-                session_id=session_id,
-                trace_id=span.trace_id,
-                parent_observation_id=span.id,
-            )
+        # LangFuse generation 기록 (조건부)
+        if self.langfuse_enabled and langfuse and span:
+            try:
+                with langfuse.start_as_current_generation(
+                    name=agent_name,
+                ) as generation:
+                    generation.update(
+                        name=agent_name,
+                        input=session_id,  # 임시로 세션 ID 사용
+                        output=message.content,
+                        model=settings.google_cloud.model_name,
+                        metadata={
+                            **response_dict,
+                            "environment": settings.environment,
+                            "session_length": len(get_session_data(session_id)),
+                        },
+                        session_id=session_id,
+                        trace_id=span.trace_id,
+                        parent_observation_id=span.id,
+                    )
+            except Exception as e:
+                logger.warning(f"Langfuse generation 기록 실패: {e}")
 
         # 승인이 필요한 경우
         if response_dict.get("approval_required"):
@@ -284,11 +384,18 @@ class MessageProcessor:
 
 
 class ApprovalProcessor:
-    """승인 처리를 담당하는 클래스"""
+    """승인 처리를 담당하는 클래스 (Langfuse 설정 개선)"""
 
-    @staticmethod
+    def __init__(self):
+        """ApprovalProcessor 초기화"""
+        self.langfuse_enabled = settings.langfuse.is_configured
+
     def process_approval(
-        session_id: str, approval_id: str, approved: bool, reason: Optional[str] = None
+        self,
+        session_id: str,
+        approval_id: str,
+        approved: bool,
+        reason: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         사용자 승인/거부 처리
@@ -312,6 +419,97 @@ class ApprovalProcessor:
         # 세션 확인
         if approval_info["session_id"] != session_id:
             return {"success": False, "error": "잘못된 세션입니다."}
+
+        # Langfuse 트레이싱 (조건부)
+        if self.langfuse_enabled and langfuse:
+            return self._process_approval_with_tracing(
+                session_id, approval_id, approved, reason, approval_info
+            )
+        else:
+            return self._process_approval_without_tracing(
+                session_id, approval_id, approved, reason, approval_info
+            )
+
+    def _process_approval_with_tracing(
+        self,
+        session_id: str,
+        approval_id: str,
+        approved: bool,
+        reason: Optional[str],
+        approval_info: Dict,
+    ) -> Dict[str, Any]:
+        """Langfuse 트레이싱과 함께 승인 처리"""
+
+        try:
+            with langfuse.start_as_current_span(
+                name="approval-process",
+                input={
+                    "approval_id": approval_id,
+                    "approved": approved,
+                    "reason": reason,
+                    "session_id": session_id,
+                },
+            ) as span:
+                # 트레이스 속성 설정
+                span.update_trace(
+                    name="Approval Decision",
+                    session_id=(
+                        session_id.split("-")[0] if "-" in session_id else session_id
+                    ),
+                    tags=["approval", "human-in-loop"],
+                    metadata={
+                        "approval_id": approval_id,
+                        "task_description": approval_info.get("task_description"),
+                        "timestamp": datetime.now().isoformat(),
+                        "environment": settings.environment,
+                    },
+                )
+
+                result = self._execute_approval_logic(
+                    session_id, approval_id, approved, reason, approval_info
+                )
+
+                # span 결과 업데이트
+                span.update(
+                    output={
+                        "approved": approved,
+                        "success": result["success"],
+                        "message_count": len(result.get("new_messages", [])),
+                    }
+                )
+
+                return result
+
+        except Exception as e:
+            logger.warning(f"Langfuse 트레이싱 중 오류: {e}")
+            return self._execute_approval_logic(
+                session_id, approval_id, approved, reason, approval_info
+            )
+
+    def _process_approval_without_tracing(
+        self,
+        session_id: str,
+        approval_id: str,
+        approved: bool,
+        reason: Optional[str],
+        approval_info: Dict,
+    ) -> Dict[str, Any]:
+        """트레이싱 없이 승인 처리"""
+        logger.info("트레이싱 없이 승인 처리")
+        return self._execute_approval_logic(
+            session_id, approval_id, approved, reason, approval_info
+        )
+
+    def _execute_approval_logic(
+        self,
+        session_id: str,
+        approval_id: str,
+        approved: bool,
+        reason: Optional[str],
+        approval_info: Dict,
+    ) -> Dict[str, Any]:
+        """승인 처리 핵심 로직"""
+        from .session import remove_pending_approval
 
         # 승인/거부 메시지 생성
         if approved:
@@ -370,3 +568,13 @@ def create_message_processor(supervisor_app) -> MessageProcessor:
         MessageProcessor: 메시지 처리기 인스턴스
     """
     return MessageProcessor(supervisor_app)
+
+
+def create_approval_processor() -> ApprovalProcessor:
+    """
+    ApprovalProcessor 인스턴스 생성
+
+    Returns:
+        ApprovalProcessor: 승인 처리기 인스턴스
+    """
+    return ApprovalProcessor()

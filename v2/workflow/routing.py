@@ -192,9 +192,6 @@ class MessageRouter:
             "검색",
             "추천",
             "뭐 있",
-            "공구",
-            "간식",
-            "음료",
         ]
         if any(keyword in message_lower for keyword in search_keywords):
             return {
