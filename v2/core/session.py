@@ -11,6 +11,30 @@ logger = logging.getLogger(__name__)
 # 전역 세션 데이터 저장소
 SESSION_DATA: Dict[str, List[BaseMessage]] = {}
 PENDING_APPROVALS: Dict[str, Dict] = {}  # 승인 대기 중인 작업들
+SESSION_USER_INFO: Dict[str, Dict] = {}
+
+
+def set_session_user_info(session_id: str, user_id: int, user_name: str) -> None:
+    """세션에 유저 정보 저장"""
+    SESSION_USER_INFO[session_id] = {
+        "user_id": user_id,
+        "user_name": user_name,
+        "updated_at": datetime.now(),
+    }
+    logger.info(
+        f"👤 유저 정보 저장 [세션: {session_id[:8]}...] [유저: {user_name}({user_id})]"
+    )
+
+
+def get_session_user_info(session_id: str) -> Optional[Dict]:
+    """세션의 유저 정보 조회"""
+    return SESSION_USER_INFO.get(session_id)
+
+
+def clear_session_user_info(session_id: str) -> None:
+    """세션 유저 정보 삭제"""
+    if session_id in SESSION_USER_INFO:
+        del SESSION_USER_INFO[session_id]
 
 
 def get_session_data(session_id: str) -> List[BaseMessage]:

@@ -805,14 +805,15 @@
             });
         }
 
-        // ✨ 새로운 메시지 분리 함수
+        // ✨ 앞뒤 텍스트 모두 처리하는 개선된 separateContent 함수
         function separateContent(content) {
             const startMarker = 'STRUCTURED_RESULT_START';
             const endMarker = 'STRUCTURED_RESULT_END';
             
             const startIndex = content.indexOf(startMarker);
+            const endIndex = content.indexOf(endMarker);
             
-            if (startIndex === -1) {
+            if (startIndex === -1 || endIndex === -1) {
                 // 구조화된 결과가 없으면 전체를 텍스트로 처리
                 return {
                     textPart: content.trim(),
@@ -821,44 +822,88 @@
             }
             
             // 구조화된 결과 앞의 텍스트 추출
-            const textPart = content.substring(0, startIndex).trim();
+            const beforeText = content.substring(0, startIndex).trim();
             
-            // 구조화된 결과 부분 추출
-            const structuredPart = content.substring(startIndex);
+            // 구조화된 결과 부분 추출 (정확한 범위만)
+            const structuredPart = content.substring(startIndex, endIndex + endMarker.length);
+            
+            // 구조화된 결과 뒤의 텍스트 추출
+            const afterText = content.substring(endIndex + endMarker.length).trim();
+            
+            // 앞뒤 텍스트를 합치기 (둘 다 있으면 줄바꿈으로 구분)
+            const combinedText = [beforeText, afterText]
+                .filter(text => text && text.length > 0)
+                .join('\n\n');
+            
+            console.log('📝 앞 텍스트:', beforeText);
+            console.log('📝 뒤 텍스트:', afterText);
+            console.log('📝 합친 텍스트:', combinedText);
             
             return {
-                textPart: textPart || null,
+                textPart: combinedText || null,
                 structuredPart: structuredPart
             };
         }
 
-        // ✨ 혼합 컨텐츠 HTML 생성 함수
+        // ✨ 카드 먼저, 텍스트 나중에 표시하는 함수
         function createMixedContentHTML(textPart, structuredPart, agent, timeDisplay) {
+            console.log('🎨 HTML 생성 시작 (카드 우선)');
+            
             let html = '';
             
-            // 일반 텍스트 부분이 있으면 먼저 표시
-            if (textPart) {
-                html += `<div class="message-content">${textPart}</div>`;
-            }
-            
-            // 구조화된 결과 부분이 있으면 카드로 표시
+            // 1. 구조화된 결과(카드) 먼저 표시
             if (structuredPart) {
                 const structuredContent = parseStructuredResult(structuredPart);
                 if (structuredContent) {
                     html += structuredContent;
+                    console.log('✅ 구조화된 카드 먼저 추가됨');
                 }
             }
             
-            // 메시지 정보 추가
+            // 2. 텍스트 부분을 카드 아래에 표시
+            if (textPart) {
+                const formattedText = textPart.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+                // 카드와 텍스트 사이에 간격 추가
+                if (structuredPart) {
+                    html += '<div style="margin: 15px 0;"></div>';
+                }
+                html += `<div class="message-content">${formattedText}</div>`;
+                console.log('✅ 텍스트 부분 나중에 추가됨');
+            }
+            
+            // 3. 메시지 정보
             const agentBadge = agent ? `<span class="agent-badge ${agent}">${getAgentDisplayName(agent)}</span>` : '';
             html += `
-                <div class="message-info">
+                <div class="message-info" style="margin-top: 15px;">
                     ${agentBadge}
                     <span>${timeDisplay}</span>
                 </div>
             `;
             
+            console.log('🎨 HTML 생성 완료 (카드 → 텍스트 순서)');
             return html;
+        }
+        // 3. 테스트용 함수 (콘솔에서 직접 테스트 가능)
+        function testMixedContent() {
+            console.log('🧪 혼합 컨텐츠 테스트 시작');
+            
+            const testMessage = `다음은 이클립스와 관련된 공구 검색 결과입니다
+        STRUCTURED_RESULT_START
+        {
+        "search_type": "🎯 키워드 검색",
+        "total_count": 2,
+        "results": []
+        }
+        STRUCTURED_RESULT_END
+        참여하고 싶으신 공구가 있으신가요?`;
+
+            const result = separateContent(testMessage);
+            console.log('🧪 테스트 결과:', result);
+            
+            const html = createMixedContentHTML(result.textPart, result.structuredPart, 'search', '12:34');
+            console.log('🧪 생성된 HTML:', html);
+            
+            return result;
         }
         // ✨ 개선된 addMessage 함수 - 혼합 컨텐츠 지원
         function addMessage(content, type, agent = null, timestamp = null) {
@@ -868,7 +913,9 @@
             
             const agentBadge = agent ? `<span class="agent-badge ${agent}">${getAgentDisplayName(agent)}</span>` : '';
             const timeDisplay = timestamp || getCurrentTime();
-            
+            if (agent === 'system' && content.includes('hidden')) {
+                return; // 숨김 처리
+            }
             // AI 메시지이고 구조화된 결과를 포함하는 경우
             if (type === 'ai' && content.includes('STRUCTURED_RESULT_START')) {
                 console.log('🔍 혼합 컨텐츠 처리 시작');
@@ -1199,6 +1246,18 @@
             messagesContainer.insertBefore(errorDiv, typingIndicator);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
+
+        function getCurrentUserInfo() {
+            const token = localStorage.getItem('authToken');
+            if (token) {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                return {
+                    user_id: payload.user_id,
+                    user_name: payload.user_name
+                };
+            }
+        }
+
         async function sendMessage() {
             if (isProcessing) return;
             
@@ -1206,7 +1265,20 @@
             const sendBtn = document.getElementById('sendBtn');
             const message = messageInput.value.trim();
             
+
             if (!message) return;
+            
+            //const userInfo = getCurrentUserInfo();  실제 유저 정보 전달
+            const userInfo = {
+                user_id: 11,  // 실제로는 로그인 정보에서 가져옴
+                user_name: "테스트유저"  // 실제로는 로그인 정보에서 가져옴
+            };
+            const requestBody = {
+                message: message,
+                session_id: sessionId,
+                user_id: userInfo.user_id,      // 추가
+                user_name: userInfo.user_name   // 추가
+            };
             
             // UI 상태 업데이트
             isProcessing = true;
@@ -1230,10 +1302,7 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        message: message,
-                        session_id: sessionId
-                    })
+                    body: JSON.stringify(requestBody)
                 });
                 
                 if (!response.ok) {

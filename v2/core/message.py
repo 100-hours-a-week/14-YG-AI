@@ -16,6 +16,7 @@ from .session import (
     get_session_data,
     add_message_to_session,
     add_pending_approval,
+    get_session_user_info,
 )
 
 logger = logging.getLogger(__name__)
@@ -128,7 +129,7 @@ class MessageProcessor:
 
     async def _execute_workflow(self, message: str, session_id: str) -> Dict[str, Any]:
         """
-        LangGraph 워크플로우 실행 (Langfuse 설정 개선)
+        LangGraph 워크플로우 실행
 
         Args:
             message: 사용자 메시지
@@ -146,78 +147,55 @@ class MessageProcessor:
             f"[내용: {truncate_content(message, 50)}]"
         )
 
-        # Langfuse 트레이싱 (조건부)
+        # 워크플로우 입력 구성
+        user_info = get_session_user_info(session_id)
+
+        # 워크플로우 입력 구성
+        workflow_input = {
+            "messages": conversation_history,
+            "next_agent": "supervisor",
+            "human_approval_required": False,
+            "human_approved": False,
+            "current_task": None,
+            "approval_id": None,
+            "session_id": session_id,
+            "user_id": user_info.get("user_id") if user_info else None,  # ✅ 수정
+            "user_name": user_info.get("user_name") if user_info else None,  # ✅ 추가
+        }
+
+        # 콜백 핸들러 설정
+        config = {"metadata": {"session_id": session_id}}
+
         if self.langfuse_enabled and langfuse:
-            return await self._execute_with_tracing(
-                message, session_id, conversation_history, initial_message_count
+            try:
+                langfuse_handler = CallbackHandler(**settings.langfuse.client_config)
+                config["callbacks"] = [langfuse_handler]
+            except Exception as e:
+                logger.warning(f"Langfuse 콜백 핸들러 생성 실패: {e}")
+
+        # 워크플로우 실행
+        try:
+            final_state = await self.supervisor_app.ainvoke(
+                workflow_input, config=config
             )
-        else:
-            return await self._execute_without_tracing(
-                message, session_id, conversation_history, initial_message_count
-            )
+        except Exception as e:
+            logger.error(f"워크플로우 실행 중 오류: {e}")
+            return {
+                "success": False,
+                "error": f"워크플로우 실행 중 오류가 발생했습니다: {str(e)}",
+                "new_messages": [],
+            }
 
-    async def _execute_with_tracing(
-        self,
-        message: str,
-        session_id: str,
-        conversation_history: List,
-        initial_message_count: int,
-    ) -> Dict[str, Any]:
-        """Langfuse 트레이싱과 함께 워크플로우 실행"""
+        # 결과 처리
+        if not final_state or not final_state.get("messages"):
+            return {
+                "success": False,
+                "error": "워크플로우가 응답을 생성하지 못했습니다.",
+                "new_messages": [],
+            }
 
-        # LangFuse 트레이싱을 위한 span 생성
-        with langfuse.start_as_current_span(
-            name="chat-message",
-            input={"message": message, "session_id": session_id},
-        ) as span:
-            # 트레이스 속성 설정
-            span.update_trace(
-                name="Chat Session",
-                session_id=(
-                    session_id.split("-")[0] if "-" in session_id else session_id
-                ),
-                tags=["chat", "web"],
-                metadata={
-                    "message_count": len(conversation_history),
-                    "timestamp": datetime.now().isoformat(),
-                    "message_length": len(message),
-                    "environment": settings.environment,
-                },
-            )
-
-            # 워크플로우 실행
-            result = await self._run_workflow(
-                message, session_id, conversation_history, initial_message_count, span
-            )
-
-            # span의 최종 output 업데이트
-            if result.get("success") and result.get("new_messages"):
-                last_message = (
-                    result["new_messages"][-1].get("content", "")
-                    if result["new_messages"]
-                    else ""
-                )
-                span.update(
-                    output={
-                        "ai_response": last_message,
-                        "response_count": len(result["new_messages"]),
-                        "success": result["success"],
-                    }
-                )
-
-            return result
-
-    async def _execute_without_tracing(
-        self,
-        message: str,
-        session_id: str,
-        conversation_history: List,
-        initial_message_count: int,
-    ) -> Dict[str, Any]:
-        """트레이싱 없이 워크플로우 실행"""
-        logger.info("트레이싱 없이 워크플로우 실행")
-        return await self._run_workflow(
-            message, session_id, conversation_history, initial_message_count, None
+        return await self._process_workflow_result(
+            final_state, initial_message_count, session_id, None
         )
 
     async def _run_workflow(

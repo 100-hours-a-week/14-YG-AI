@@ -28,6 +28,7 @@ def basemessage_to_dict(message: BaseMessage) -> dict:
         "role": "user" if isinstance(message, HumanMessage) else "assistant",
         "agent": agent_name,
         "timestamp": datetime.now().isoformat(),
+        "hidden": message.additional_kwargs.get("hidden", False),  # ✅ 추가
         # HITL 관련 추가 정보
         "approval_required": message.additional_kwargs.get("approval_required", False),
         "approval_id": message.additional_kwargs.get("approval_id"),

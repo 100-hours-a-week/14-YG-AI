@@ -29,6 +29,7 @@ class WorkflowState(TypedDict):
     approval_id: Optional[str]
     session_id: Optional[str]
     user_id: Optional[str]
+    user_name: Optional[str]  # ✅ 추가
 
 
 # =============================================================================

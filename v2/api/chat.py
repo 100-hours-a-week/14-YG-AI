@@ -85,6 +85,27 @@ async def process_message_stream(
             )
             return
 
+        # 유저 정보 가져오기
+        from core.session import get_session_user_info
+
+        user_info = get_session_user_info(session_id)
+
+        # 첫 번째 사용자 메시지인 경우 시스템 메시지 추가
+        user_messages = [
+            msg
+            for msg in conversation_history
+            if hasattr(msg, "type") and msg.type == "human"
+        ]
+        if len(user_messages) == 1 and user_info:  # 첫 대화 + 유저 정보 있음
+            system_message = AIMessage(
+                content=f"💡 시스템: 현재 대화 중인 사용자는 {user_info['user_name']}님 (ID: {user_info['user_id']})입니다. 대화에 참고해 주세요",
+                additional_kwargs={"agent": "system", "hidden": True},
+            )
+            # 대화 기록 맨 앞에 추가 (첫 번째 사용자 메시지 다음)
+            conversation_history.insert(-1, system_message)
+            add_message_to_session(session_id, system_message)
+
+        yield await format_sse_data(format_processing_message("분석 중..."))
         # 새 사용자 메시지 추가
         user_message = HumanMessage(content=message)
         add_message_to_session(session_id, user_message)
@@ -92,10 +113,19 @@ async def process_message_stream(
 
         yield await format_sse_data(format_processing_message("분석 중..."))
 
-        # LangFuse 트레이싱을 위한 span 생성
+        # 유저 정보 가져오기
+        from core.session import get_session_user_info
+
+        user_info = get_session_user_info(session_id)
+
         with langfuse.start_as_current_span(
             name="chat-message",
-            input={"message": message, "session_id": session_id},
+            input={
+                "message": message,
+                "session_id": session_id,
+                "user_id": user_info.get("user_id") if user_info else None,
+                "user_name": user_info.get("user_name") if user_info else None,
+            },
         ) as span:
             # 트레이스 속성 설정 (세션별 그룹화)
             span.update_trace(
@@ -120,9 +150,8 @@ async def process_message_stream(
                 "current_task": None,
                 "approval_id": None,
                 "session_id": session_id,
-                "user_id": (
-                    session_id.split("-")[0] if "-" in session_id else session_id
-                ),
+                "user_id": user_info.get("user_id") if user_info else None,
+                "user_name": user_info.get("user_name") if user_info else None,
             }
 
             logger.info(
@@ -187,6 +216,10 @@ async def process_message_stream(
                                 trace_id=span.trace_id,
                                 parent_observation_id=span.id,
                             )
+
+                        # hidden 플래그가 있으면 스킵
+                        if response_dict.get("hidden"):
+                            continue  # ✅ 프론트엔드로 전송하지 않음
 
                         # 승인이 필요한 경우
                         if response_dict.get("approval_required"):
@@ -259,6 +292,11 @@ async def chat_stream_endpoint(chat_message: ChatMessage):
         raise HTTPException(status_code=400, detail="메시지가 비어있습니다.")
 
     session_id = chat_message.session_id or str(uuid.uuid4())
+
+    if chat_message.user_id and chat_message.user_name:
+        from core.session import set_session_user_info
+
+        set_session_user_info(session_id, chat_message.user_id, chat_message.user_name)
 
     # supervisor_app은 전역에서 가져와야 함 (의존성 주입으로 개선 예정)
     from app import supervisor_app  # 임시 방식, 나중에 개선
