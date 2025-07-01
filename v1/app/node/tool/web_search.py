@@ -49,8 +49,11 @@ def web_search_tool(state: Dict) -> Dict:
                 print(f"[{api_key[:15]}...] 결과 없음")
                 continue
 
-            state["web_search"] = [parse_search_dict(rec) for rec in results]
+            state["web_search"] = results
             return state
 
         except Exception as e:
             print(f"예외 발생: {e}")
+
+    state["web_search"] = state["generation"]["product_lower_name"]
+    return state

@@ -28,13 +28,7 @@ async def product_post_gen(state: Dict) -> Dict:
     return {"generation": state["generation"]}
 
 async def generate_describe(state: Dict) -> str:
-    docs = state["web_search"]
-    context = "\n\n".join(
-        f"<document><content>{doc.page_content}</content></document>"
-        for doc in docs
-    )
-
-    prompt = desc_prompt_template.format(context=context)
+    prompt = desc_prompt_template.format(context=state["web_search"])
     desc = await llm.async_generate(prompt)
     
     return desc
