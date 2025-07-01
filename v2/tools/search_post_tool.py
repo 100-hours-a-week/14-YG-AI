@@ -218,10 +218,10 @@ evaluations 배열의 순서는 입력된 상품 순서와 정확히 일치해�
 
             # 9. 결과가 너무 적으면 경고
             if len(filtered_rows) == 0:
-                print("⚠️ 모든 상품이 부적합으로 판단됨 - 원본 결과 일부 반환")
+                print("⚠️ 모든 상품이 부적합으로 판단됨")
                 # 전체 제외는 위험하므로 최소 1-2개는 반환
-                filtered_rows = rows[:2]
-                analysis_info["reasoning"] += " (안전을 위해 일부 결과 포함)"
+                # filtered_rows = rows[:2]
+                analysis_info["reasoning"] += "모든 상품 부적합 판단"
 
             return filtered_rows, analysis_info
 
@@ -573,6 +573,7 @@ async def format_search_results_structured(
 
         # 필터링된 결과 사용
         final_rows = filtered_rows
+        print(final_rows)
 
     except Exception as e:
         print(f"⚠️ LLM 필터링 실패, 원본 결과 사용: {e}")
@@ -695,7 +696,7 @@ async def search_group_buy(query: str) -> str:
     """
     공구 게시글을 검색합니다.
 
-    ⚠️ 중요: 사용자의 전체 쿼리를 그대로 전달하세요!
+    ⚠️ 중요:  사용자의 요구사항을 그대로 전달하세요! 필요하면 맥락을 파악해서 요구사항을 판단하고 진행하세요.
 
     지원하는 검색:
     1. 키워드 검색: 구체적인 상품명 (콜라, 이클립스 등)
