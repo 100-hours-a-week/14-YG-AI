@@ -1,6 +1,15 @@
 # 14-YG-AI
 
+https://github.com/user-attachments/assets/ba72ea5a-f858-4815-b567-62d74c08181c
+
+
 ### [LLM을 사용한 공동 구매 주최글 자동 생성 기능](./v1/README.md)
+
+<!-- <p align="center">
+  <img src="https://github.com/user-attachments/assets/55a7a067-ef7a-451f-b819-184092c19823" width="600">
+</p> -->
+
+
 <p>
     <img alt="Static Badge" src="https://img.shields.io/badge/python-3.11-blue?style=flat&logo=python&logoColor=white">
     <img alt="Static Badge" src="https://img.shields.io/badge/fastapi-gray?style=flat&logo=fastapi&logoColor=white">
