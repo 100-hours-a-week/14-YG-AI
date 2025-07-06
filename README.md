@@ -9,13 +9,18 @@ https://github.com/user-attachments/assets/ba72ea5a-f858-4815-b567-62d74c08181c
   <img src="https://github.com/user-attachments/assets/55a7a067-ef7a-451f-b819-184092c19823" width="600">
 </p> -->
 
-
 <p>
     <img alt="Static Badge" src="https://img.shields.io/badge/python-3.11-blue?style=flat&logo=python&logoColor=white">
-    <img alt="Static Badge" src="https://img.shields.io/badge/fastapi-gray?style=flat&logo=fastapi&logoColor=white">
-    <img alt="Static Badge" src="https://img.shields.io/badge/langchain-black?style=flat&logo=langchain&logoColor=white">
+    <img alt="Static Badge" src="https://img.shields.io/badge/LangGraph-FF6B6B?style=flat&logoColor=white">
+    <img alt="Static Badge" src="https://img.shields.io/badge/LangChain-1C3C3C?style=flat&logo=langchain&logoColor=white">
     <img alt="Static Badge" src="https://img.shields.io/badge/langsmith-black?style=flat&logo=langsmith&logoColor=white">
+    <img alt="Static Badge" src="https://img.shields.io/badge/Langfuse-9B59B6?style=flat&logoColor=white">
+    <img alt="Static Badge" src="https://img.shields.io/badge/RAG-FF6B6B?style=flat&logoColor=white">
+    <img alt="Static Badge" src="https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white">
+    <img alt="Static Badge" src="https://img.shields.io/badge/Selenium-43B02A?style=flat&logo=selenium&logoColor=white"> 
+    <img alt="Static Badge" src="https://img.shields.io/badge/EasyOCR-FF6B6B?style=flat&logoColor=white">
 </p>
+
 
 >  url을 통해 상품 정보를 추출하고 공동 구매 주최글에 어울리는 상품 설명글, 빅데이터를 통해 추천하는 공동 구매 마감 일자, 픽업 일자를 생성합니다.
 
