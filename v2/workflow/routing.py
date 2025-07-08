@@ -21,13 +21,11 @@ class RouterDecision:
         selected_agent: str,
         confidence: float,
         reasoning: str,
-        human_approval_required: bool = False,
         task_description: str = "",
     ):
         self.selected_agent = selected_agent
         self.confidence = confidence
         self.reasoning = reasoning
-        self.human_approval_required = human_approval_required
         self.task_description = task_description
 
     def to_dict(self) -> Dict[str, Any]:
@@ -36,7 +34,6 @@ class RouterDecision:
             "selected_agent": self.selected_agent,
             "confidence": self.confidence,
             "reasoning": self.reasoning,
-            "human_approval_required": self.human_approval_required,
             "task_description": self.task_description,
         }
 
@@ -55,6 +52,7 @@ class MessageRouter:
             "CHAT": "chat",
             "SEARCH": "search",
             "PARTICIPATE": "participate",
+            "CREATE": "create",
         }
 
     async def route_message(
@@ -120,7 +118,6 @@ class MessageRouter:
             selected_agent=decision_data.get("selected_agent", "CHAT"),
             confidence=decision_data.get("confidence", 0.5),
             reasoning=decision_data.get("reasoning", "LLM 응답 파싱 결과"),
-            human_approval_required=decision_data.get("human_approval_required", False),
             task_description=decision_data.get("task_description", ""),
         )
 
@@ -178,10 +175,9 @@ class MessageRouter:
         ]
         if any(keyword in message_lower for keyword in create_keywords):
             return {
-                "selected_agent": "PARTICIPATE",
+                "selected_agent": "CREATE",
                 "confidence": 0.8,
                 "reasoning": "규칙 기반: 공구 생성 키워드 감지",
-                "human_approval_required": True,
                 "task_description": "공구 생성 요청",
             }
 
@@ -198,7 +194,6 @@ class MessageRouter:
                 "selected_agent": "SEARCH",
                 "confidence": 0.7,
                 "reasoning": "규칙 기반: 검색 키워드 감지",
-                "human_approval_required": False,
                 "task_description": "공구 검색 요청",
             }
 
@@ -207,7 +202,6 @@ class MessageRouter:
             "selected_agent": "CHAT",
             "confidence": 0.6,
             "reasoning": "규칙 기반: 기본 대화로 처리",
-            "human_approval_required": False,
             "task_description": "일반 대화",
         }
 
@@ -225,14 +219,9 @@ class MessageRouter:
         if decision.selected_agent in self.agent_mapping:
             decision.selected_agent = self.agent_mapping[decision.selected_agent]
 
-        # PARTICIPATE 에이전트는 항상 승인 필요
-        if decision.selected_agent == "participate":
-            decision.human_approval_required = True
-
         # 신뢰도가 낮으면 CHAT으로 폴백
         if decision.confidence < 0.7:
             decision.selected_agent = "chat"
-            decision.human_approval_required = False
             decision.reasoning += " (낮은 신뢰도로 인한 CHAT 폴백)"
 
         return decision
@@ -251,7 +240,6 @@ class MessageRouter:
             selected_agent="chat",
             confidence=0.5,
             reasoning=f"폴백 라우팅: {reason}",
-            human_approval_required=False,
             task_description="기본 대화",
         )
 
@@ -288,7 +276,6 @@ class RoutingAnalyzer:
         # 에이전트별 통계
         agent_counts = {}
         confidence_sum = 0
-        approval_count = 0
 
         for record in self.routing_history:
             decision = record["decision"]
@@ -296,8 +283,6 @@ class RoutingAnalyzer:
 
             agent_counts[agent] = agent_counts.get(agent, 0) + 1
             confidence_sum += decision["confidence"]
-            if decision["human_approval_required"]:
-                approval_count += 1
 
         total = len(self.routing_history)
 
@@ -305,7 +290,6 @@ class RoutingAnalyzer:
             "total_routings": total,
             "agent_distribution": agent_counts,
             "average_confidence": round(confidence_sum / total, 3),
-            "approval_rate": round(approval_count / total * 100, 1),
             "most_used_agent": max(agent_counts.items(), key=lambda x: x[1])[0],
         }
 
@@ -334,7 +318,7 @@ def validate_routing_decision(decision: RouterDecision) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: 검증 결과
     """
-    valid_agents = ["chat", "search", "participate"]
+    valid_agents = ["chat", "search", "participate", "create"]
 
     errors = []
 
@@ -440,7 +424,6 @@ if __name__ == "__main__":
                 print(f"   🎯 선택된 에이전트: {decision.selected_agent}")
                 print(f"   📊 신뢰도: {decision.confidence:.2f}")
                 print(f"   💭 이유: {decision.reasoning}")
-                print(f"   🔒 승인 필요: {decision.human_approval_required}")
                 print()
             except Exception as e:
                 print(f"❌ 테스트 오류 ['{msg}']: {e}")

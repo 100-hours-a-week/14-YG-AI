@@ -23,7 +23,6 @@ class WorkflowState(TypedDict):
 
     messages: List[BaseMessage]
     next_agent: str
-    human_approval_required: bool
     human_approved: bool
     current_task: Optional[str]
     approval_id: Optional[str]
@@ -58,23 +57,14 @@ async def supervisor_routing_node(state: WorkflowState) -> WorkflowState:
 
         # 상태 업데이트
         state["next_agent"] = decision.selected_agent
-        state["human_approval_required"] = decision.human_approval_required
         state["current_task"] = decision.task_description
 
-        # PARTICIPATE는 항상 승인 필요
-        if decision.selected_agent == "participate":
-            state["human_approval_required"] = True
-
-        logger.info(
-            f"✅ 라우팅 결정 완료 [다음 에이전트: {decision.selected_agent}] "
-            f"[신뢰도: {decision.confidence:.2f}] [승인 필요: {decision.human_approval_required}]"
-        )
+        logger.info(f"✅ 라우팅 결정 완료 [다음 에이전트: {decision.selected_agent}] ")
 
     except Exception as e:
         logger.error(f"❌ 슈퍼바이저 라우팅 오류: {e}", exc_info=True)
         # 오류 시 기본 채팅 에이전트로 폴백
         state["next_agent"] = "chat"
-        state["human_approval_required"] = False
         state["current_task"] = "라우팅 오류로 인한 기본 대화"
 
     return state
@@ -101,11 +91,22 @@ async def run_participate_agent_node(
     return await run_agent_node(state, config, "participate")
 
 
+async def run_create_agent_node(
+    state: WorkflowState, config: RunnableConfig
+) -> WorkflowState:
+    """공구 생성 에이전트 실행 노드"""
+    return await run_agent_node(state, config, "create")
+
+
+# 1. 승인 필요 에이전트 정의
+APPROVAL_REQUIRED_AGENTS = ["create", "participate"]
+
+
 async def run_agent_node(
     state: WorkflowState, config: RunnableConfig, agent_name: str
 ) -> WorkflowState:
     """
-    공통 에이전트 실행 노드
+    공통 에이전트 실행 노드 (도구 기반 승인 시스템)
 
     Args:
         state: 워크플로우 상태
@@ -145,11 +146,12 @@ async def run_agent_node(
 
         # 성공적인 결과 처리
         agent_response = result["result"]["messages"][-1]
+
         # 🔧 에이전트 이름을 additional_kwargs에 명시적으로 설정
         if hasattr(agent_response, "additional_kwargs"):
-            agent_response.additional_kwargs["agent"] = agent_name  # 이 줄 추가
+            agent_response.additional_kwargs["agent"] = agent_name
         else:
-            agent_response.additional_kwargs = {"agent": agent_name}  # 이 줄 추가
+            agent_response.additional_kwargs = {"agent": agent_name}
 
         state["messages"].append(agent_response)
 
@@ -158,16 +160,58 @@ async def run_agent_node(
             f"[응답 길이: {len(agent_response.content)}자]"
         )
 
-        # 승인이 필요한 경우 확인
-        if (
-            agent_name == "participate"
-            and "승인이 필요합니다" in agent_response.content
-        ):
+        # ✨ 도구 사용 기반 승인 시스템
+        approval_needed = False
+        approval_reason = ""
+
+        # 1. create_post 도구 사용 감지
+        if _tool_was_used(result, "create_post"):
+            approval_needed = True
+            approval_reason = "공구 생성"
+            logger.info("🔧 create_post 도구 사용 감지 - 승인 필요")
+
+        # 2. 기타 승인 필요 도구들 (미래 확장 가능)
+        elif _tool_was_used(result, "participate_post"):  # 예시
+            approval_needed = True
+            approval_reason = "공구 참여"
+            logger.info("🔧 participate_post 도구 사용 감지 - 승인 필요")
+
+        # 3. 추가 정보 요청인 경우
+        elif "❓ 추가 정보가 필요합니다" in agent_response.content:
+            state["human_approval_required"] = True
+            state["approval_type"] = "input"
+            state["approval_id"] = str(uuid.uuid4())
+
+            # 질문 내용 추출
+            lines = agent_response.content.split("\n")
+            question = "추가 정보를 입력해주세요"
+            for line in lines:
+                if line.startswith("질문:") or "?" in line:
+                    question = line.replace("질문:", "").strip()
+                    if question.endswith("?"):
+                        break
+
+            state["context_question"] = question
+            state["current_task"] = "추가 정보 입력"
+            state["next_agent"] = "human_approval"
+
+            logger.info(f"❓ 추가 정보 요청 - 질문: {question}")
+            return state
+
+        # 도구 사용 기반 승인 처리
+        if approval_needed:
             state["human_approval_required"] = True
             state["approval_id"] = str(uuid.uuid4())
+            state["current_task"] = approval_reason
             state["next_agent"] = "human_approval"
+
+            logger.info(
+                f"🔔 도구 사용 승인 필요 - 작업: {approval_reason}, ID: {state['approval_id']}"
+            )
         else:
+            # 일반 응답 - 승인 불필요
             state["next_agent"] = "__end__"
+            logger.info(f"✅ {agent_name} 에이전트 완료 - 승인 불필요")
 
     except Exception as e:
         logger.error(f"❌ {agent_name} 에이전트 노드 오류: {e}", exc_info=True)
@@ -181,6 +225,46 @@ async def run_agent_node(
     return state
 
 
+def _tool_was_used(agent_result: dict, tool_name: str) -> bool:
+    """
+    에이전트 실행 결과에서 특정 도구 사용 여부 확인
+
+    Args:
+        agent_result: run_agent_safe의 결과
+        tool_name: 확인할 도구 이름
+
+    Returns:
+        bool: 도구 사용 여부
+    """
+    try:
+        # LangGraph의 실행 결과에서 도구 사용 정보 추출
+        if "result" in agent_result and "messages" in agent_result["result"]:
+            messages = agent_result["result"]["messages"]
+
+            for message in messages:
+                # ToolMessage나 additional_kwargs에서 도구 정보 확인
+                if hasattr(message, "additional_kwargs"):
+                    tool_calls = message.additional_kwargs.get("tool_calls", [])
+                    for tool_call in tool_calls:
+                        if tool_call.get("function", {}).get("name") == tool_name:
+                            return True
+
+                # 메시지 내용에서 도구 사용 흔적 확인 (fallback)
+                if hasattr(message, "content") and tool_name in str(message.content):
+                    # "create_post 도구를 사용하여..." 같은 패턴 감지
+                    if (
+                        f"{tool_name} 도구" in message.content
+                        or f"사용하여" in message.content
+                    ):
+                        return True
+
+        return False
+
+    except Exception as e:
+        logger.warning(f"⚠️ 도구 사용 감지 중 오류: {e}")
+        return False
+
+
 async def human_approval_node(state: WorkflowState) -> WorkflowState:
     """사용자 승인 대기 노드"""
 
@@ -188,19 +272,35 @@ async def human_approval_node(state: WorkflowState) -> WorkflowState:
         f"🔔 사용자 승인 대기 [작업: {state.get('current_task', '알 수 없음')}]"
     )
 
-    # 승인 요청 메시지 생성
-    approval_message = AIMessage(
-        content=f"🔔 사용자 승인이 필요합니다.\n작업: {state.get('current_task', '알 수 없음')}",
-        additional_kwargs={
-            "agent": "system",
-            "approval_required": True,
-            "approval_id": state.get("approval_id", str(uuid.uuid4())),
-            "task_description": state.get("current_task", ""),
-        },
-    )
-    state["messages"].append(approval_message)
+    approval_type = state.get("approval_type", "confirmation")
 
-    # 승인 대기 상태로 전환
+    if approval_type == "input":
+        # 추가 정보 요청
+        approval_message = AIMessage(
+            content=f"❓ 추가 정보가 필요합니다.\n{state.get('context_question', '정보를 입력해주세요')}",
+            additional_kwargs={
+                "agent": "system",
+                "approval_required": True,
+                "approval_type": "input",
+                "approval_id": state.get("approval_id", str(uuid.uuid4())),
+                "task_description": state.get("current_task", ""),
+                "context_question": state.get("context_question", ""),
+            },
+        )
+    else:
+        # 기존 승인 요청
+        approval_message = AIMessage(
+            content=f"🔔 사용자 승인이 필요합니다.\n작업: {state.get('current_task', '알 수 없음')}",
+            additional_kwargs={
+                "agent": "system",
+                "approval_required": True,
+                "approval_type": "confirmation",
+                "approval_id": state.get("approval_id", str(uuid.uuid4())),
+                "task_description": state.get("current_task", ""),
+            },
+        )
+
+    state["messages"].append(approval_message)
     state["next_agent"] = "__end__"
 
     return state
@@ -213,7 +313,7 @@ async def human_approval_node(state: WorkflowState) -> WorkflowState:
 
 def should_continue(
     state: WorkflowState,
-) -> Literal["chat", "search", "participate", "human_approval", "__end__"]:
+) -> Literal["chat", "search", "participate", "create", "human_approval", "__end__"]:
     """
     다음 단계 결정 함수
 
@@ -228,15 +328,11 @@ def should_continue(
     logger.debug(f"🧭 다음 단계 결정: {next_agent}")
 
     # 승인이 필요하고 아직 승인되지 않은 경우
-    if (
-        state.get("human_approval_required", False)
-        and not state.get("human_approved", False)
-        and next_agent == "human_approval"
-    ):
+    if not state.get("human_approved", False) and next_agent == "human_approval":
         return "human_approval"
 
     # 유효한 에이전트인 경우
-    if next_agent in ["chat", "search", "participate", "human_approval"]:
+    if next_agent in ["chat", "search", "participate", "create", "human_approval"]:
         return next_agent
 
     # 기본값: 종료
@@ -271,6 +367,7 @@ class WorkflowManager:
             workflow.add_node("chat", run_chat_agent_node)
             workflow.add_node("search", run_search_agent_node)
             workflow.add_node("participate", run_participate_agent_node)
+            workflow.add_node("create", run_create_agent_node)
             workflow.add_node("human_approval", human_approval_node)
 
             # 진입점 설정
@@ -284,12 +381,13 @@ class WorkflowManager:
                     "chat": "chat",
                     "search": "search",
                     "participate": "participate",
+                    "create": "create",
                     "__end__": END,
                 },
             )
 
             # 각 에이전트에서의 조건부 엣지
-            for agent in ["chat", "search", "participate"]:
+            for agent in ["chat", "search", "participate", "create"]:
                 workflow.add_conditional_edges(
                     agent,
                     should_continue,
@@ -385,6 +483,7 @@ def validate_workflow_state(state: WorkflowState) -> dict:
         "chat",
         "search",
         "participate",
+        "create",
         "human_approval",
         "__end__",
         "supervisor",
@@ -415,7 +514,6 @@ def create_initial_state(
     return {
         "messages": messages,
         "next_agent": "supervisor",
-        "human_approval_required": False,
         "human_approved": False,
         "approval_id": None,
         "session_id": session_id,
@@ -435,6 +533,7 @@ def get_workflow_stats() -> dict:
             "chat_agent",
             "search_agent",
             "participate_agent",
+            "create_agent",
             "supervisor_llm",
         ]
     }
@@ -484,9 +583,6 @@ if __name__ == "__main__":
             print("🎯 실행 결과:")
             print(f"  📊 메시지 수: {len(final_state['messages'])}")
             print(f"  🎭 최종 에이전트: {final_state['next_agent']}")
-            print(
-                f"  🔒 승인 필요: {final_state.get('human_approval_required', False)}"
-            )
 
             # 메시지 출력
             for i, msg in enumerate(final_state["messages"]):

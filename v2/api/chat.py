@@ -200,6 +200,16 @@ async def process_message_stream(
                 for new_msg in new_messages:
                     if isinstance(new_msg, AIMessage):
                         response_dict = basemessage_to_dict(new_msg)
+                        # 승인 필요 에이전트인 경우 자동으로 승인 플래그 설정
+                        if final_state.get("human_approval_required"):
+                            response_dict["approval_required"] = True
+                            response_dict["approval_id"] = final_state.get(
+                                "approval_id"
+                            )
+                            response_dict["task_description"] = final_state.get(
+                                "current_task"
+                            )
+
                         agent_name = response_dict.get("agent", "unknown_agent")
 
                         with langfuse.start_as_current_generation(

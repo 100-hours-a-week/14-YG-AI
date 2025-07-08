@@ -9,7 +9,7 @@ from langgraph.prebuilt import create_react_agent
 
 from config import settings
 from tools.search_post_tool import search_group_buy
-
+from tools.create_post_tool import create_post
 
 # =============================================================================
 # 공통 도구들
@@ -23,42 +23,16 @@ def get_current_time() -> str:
     return datetime.now().strftime("%Y년 %m월 %d일 %H시 %M분")
 
 
-@tool
-def create_group_buy_post(
-    title: str,
-    product_name: str,
-    unit_price: int,
-    total_amount: int,
-    unit_amount: int,
-    due_date: str,
-    pickup_date: str,
-    description: str = "",
-    location: str = "카카오테크 부트캠프 교육장",
-) -> str:
-    """공구 게시글을 생성합니다."""
-
-    post_data = {
-        "title": title,
-        "product_name": product_name,
-        "unit_price": unit_price,
-        "total_amount": total_amount,
-        "unit_amount": unit_amount,
-        "due_date": due_date,
-        "pickup_date": pickup_date,
-        "description": description,
-        "location": location,
-        "created_at": datetime.now().isoformat(),
-    }
-
-    post_id = f"GB_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-
-    return f"✅ 공구 게시글이 성공적으로 생성되었습니다!\n게시글 ID: {post_id}\n제목: {title}\n상품: {product_name}\n개당 가격: {unit_price:,}원"
+# @tool
+# def request_human_approval(task_description: str, details: str) -> str:
+#     """사용자 승인을 요청합니다."""
+#     return f"🔔 사용자 승인이 필요합니다.\n작업: {task_description}\n상세: {details}"
 
 
 @tool
-def request_human_approval(task_description: str, details: str) -> str:
-    """사용자 승인을 요청합니다."""
-    return f"🔔 사용자 승인이 필요합니다.\n작업: {task_description}\n상세: {details}"
+def request_additional_info(question: str, context: str = "") -> str:
+    """추가 정보 요청 (승인과 무관)"""
+    return f"❓ {question}\n{context}"
 
 
 # =============================================================================
@@ -131,11 +105,29 @@ def create_search_agent():
     )
 
 
+def create_create_agent():
+    """공구 생성 에이전트"""
+
+    llm = create_base_llm(temperature=0.0)
+    tools = [create_post, request_additional_info]
+
+    from .prompts import get_create_agent_prompt
+
+    prompt = get_create_agent_prompt()
+
+    return create_react_agent(
+        model=llm,
+        tools=tools,
+        name="create_agent",
+        prompt=prompt,
+    )
+
+
 def create_participate_agent():
     """공구 참여 및 생성 에이전트"""
 
     llm = create_base_llm(temperature=0.0)
-    tools = [create_group_buy_post, request_human_approval]
+    tools = [request_additional_info]
 
     from .prompts import get_participate_agent_prompt
 
@@ -186,6 +178,13 @@ class AgentFactory:
         return cls._agents_cache["participate_agent"]
 
     @classmethod
+    def get_create_agent(cls):
+        """캐시된 공구 생성 에이전트 반환"""
+        if "create_agent" not in cls._agents_cache:
+            cls._agents_cache["create_agent"] = create_create_agent()
+        return cls._agents_cache["create_agent"]
+
+    @classmethod
     def get_supervisor_llm(cls):
         """캐시된 슈퍼바이저 LLM 반환"""
         if "supervisor_llm" not in cls._agents_cache:
@@ -204,6 +203,7 @@ class AgentFactory:
             "chat_agent": cls.get_chat_agent(),
             "search_agent": cls.get_search_agent(),
             "participate_agent": cls.get_participate_agent(),
+            "create_agent": cls.get_create_agent(),
         }
 
 
@@ -230,8 +230,14 @@ def get_agent_info() -> dict:
         "participate_agent": {
             "name": "공구참여 에이전트",
             "description": "공구 참여",
-            "tools": ["create_group_buy_post", "request_human_approval"],
+            "tools": ["request_additional_info"],
             "temperature": 0.2,
+        },
+        "create_agent": {
+            "name": "공구생성 에이전트",
+            "description": "공구 생성",
+            "tools": ["create_post", "request_additional_info"],
+            "temperature": 0.0,
         },
     }
 
@@ -265,6 +271,15 @@ def validate_agent_configuration() -> dict:
             }
         except Exception as e:
             agents_status["participate_agent"] = {"status": "error", "error": str(e)}
+
+        try:
+            create_agent = create_create_agent()
+            agents_status["create_agent"] = {
+                "status": "ok",
+                "name": create_agent.name,
+            }
+        except Exception as e:
+            agents_status["create_agent"] = {"status": "error", "error": str(e)}
 
         return {
             "overall_status": "ok",
@@ -330,6 +345,7 @@ def get_agent_by_name(agent_name: str):
         "chat": AgentFactory.get_chat_agent,
         "search": AgentFactory.get_search_agent,
         "participate": AgentFactory.get_participate_agent,
+        "create": AgentFactory.get_create_agent,
     }
 
     if agent_name in agent_map:
