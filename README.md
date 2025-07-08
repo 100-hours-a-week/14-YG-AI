@@ -30,7 +30,7 @@ https://github.com/user-attachments/assets/ba72ea5a-f858-4815-b567-62d74c08181c
 >  V3 구현 예정
 
 
-### [익명 채팅 모더레이션 기능 (클린봇)](./modertaion/README.md)
+### [익명 채팅 모더레이션 기능 (클린봇)](./moderation/README.md)
 <p>
     <img alt="Static Badge" src="https://img.shields.io/badge/python-3.11-blue?style=flat&logo=python&logoColor=white">
     <img alt="Static Badge" src="https://img.shields.io/badge/LangChain-1C3C3C?style=flat&logo=langchain&logoColor=white">
