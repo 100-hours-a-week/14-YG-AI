@@ -37,7 +37,10 @@ https://github.com/user-attachments/assets/ba72ea5a-f858-4815-b567-62d74c08181c
     <img alt="Static Badge" src="https://img.shields.io/badge/langsmith-black?style=flat&logo=langsmith&logoColor=white">
     <img alt="Static Badge" src="https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white">
     <img alt="Static Badge" src="https://img.shields.io/badge/vLLM-blue?style=flat&logoColor=white">
-    <img alt="Static Badge" src="https://img.shields.io/badge/Hugging face-white?style=flat&logo=hugging face&logoColor=yellow">
+    <img alt="Static Badge" src="https://img.shields.io/badge/Hugging face-white?style=flat&logo=huggingface&logoColor=yellow">
 </p>
+
+![image](https://github.com/user-attachments/assets/2d294ae4-75b3-4983-a025-edd7a568bd8c)
+
 
 > 익명 사용자의 부적절한 채팅을 감지하여 차단합니다.
