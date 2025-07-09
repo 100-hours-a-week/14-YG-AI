@@ -1,4 +1,4 @@
-# 익명 채팅 모더레이션 (클린봇))
+# 익명 채팅 모더레이션 (클린봇)
 <p>
     <img alt="Static Badge" src="https://img.shields.io/badge/python-3.11-blue?style=flat&logo=python&logoColor=white">
     <img alt="Static Badge" src="https://img.shields.io/badge/LangChain-1C3C3C?style=flat&logo=langchain&logoColor=white">
