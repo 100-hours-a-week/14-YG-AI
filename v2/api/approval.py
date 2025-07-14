@@ -14,7 +14,25 @@ from core.session import (
     remove_pending_approval,
     get_session_pending_approvals,
 )
-from models.approval import ApprovalRequest
+
+from pydantic import BaseModel, field_validator
+from typing import Optional
+
+
+class ApprovalRequest(BaseModel):
+    """승인 요청 모델"""
+
+    approved: bool
+    reason: Optional[str] = None
+
+    @field_validator("reason")
+    def validate_reason(cls, v):
+        if v is not None and len(v.strip()) == 0:
+            return None
+        if v is not None and len(v) > 500:
+            raise ValueError("사유는 500자 이내로 입력해주세요")
+        return v.strip() if v else None
+
 
 logger = logging.getLogger(__name__)
 

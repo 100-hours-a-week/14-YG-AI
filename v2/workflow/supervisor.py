@@ -29,6 +29,7 @@ class WorkflowState(TypedDict):
     session_id: Optional[str]
     user_id: Optional[str]
     user_name: Optional[str]  # ✅ 추가
+    access_token: Optional[str]
 
 
 # =============================================================================
@@ -98,10 +99,6 @@ async def run_create_agent_node(
     return await run_agent_node(state, config, "create")
 
 
-# 1. 승인 필요 에이전트 정의
-APPROVAL_REQUIRED_AGENTS = ["create", "participate"]
-
-
 async def run_agent_node(
     state: WorkflowState, config: RunnableConfig, agent_name: str
 ) -> WorkflowState:
@@ -165,10 +162,10 @@ async def run_agent_node(
         approval_reason = ""
 
         # 1. create_post 도구 사용 감지
-        if _tool_was_used(result, "create_post"):
+        if _tool_was_used(result, "create_post") or agent_name == "create":
             approval_needed = True
             approval_reason = "공구 생성"
-            logger.info("🔧 create_post 도구 사용 감지 - 승인 필요")
+            logger.info("🔧 create_post 도구 사용 감지 또는 create 에이전트 실행 - 승인 필요")
 
         # 2. 기타 승인 필요 도구들 (미래 확장 가능)
         elif _tool_was_used(result, "participate_post"):  # 예시
@@ -237,27 +234,39 @@ def _tool_was_used(agent_result: dict, tool_name: str) -> bool:
         bool: 도구 사용 여부
     """
     try:
+        logger.info(f"🔍 도구 사용 감지 시작 - 찾는 도구: {tool_name}")
+        
         # LangGraph의 실행 결과에서 도구 사용 정보 추출
         if "result" in agent_result and "messages" in agent_result["result"]:
             messages = agent_result["result"]["messages"]
+            logger.info(f"📝 검사할 메시지 수: {len(messages)}")
 
-            for message in messages:
+            for i, message in enumerate(messages):
+                logger.info(f"  메시지 {i}: 타입={type(message).__name__}")
+                
                 # ToolMessage나 additional_kwargs에서 도구 정보 확인
                 if hasattr(message, "additional_kwargs"):
                     tool_calls = message.additional_kwargs.get("tool_calls", [])
+                    logger.info(f"    tool_calls: {tool_calls}")
                     for tool_call in tool_calls:
-                        if tool_call.get("function", {}).get("name") == tool_name:
+                        function_name = tool_call.get("function", {}).get("name")
+                        logger.info(f"    도구 호출 발견: {function_name}")
+                        if function_name == tool_name:
+                            logger.info(f"✅ {tool_name} 도구 사용 감지됨!")
                             return True
 
                 # 메시지 내용에서 도구 사용 흔적 확인 (fallback)
                 if hasattr(message, "content") and tool_name in str(message.content):
+                    logger.info(f"    메시지 내용에서 {tool_name} 발견")
                     # "create_post 도구를 사용하여..." 같은 패턴 감지
                     if (
                         f"{tool_name} 도구" in message.content
                         or f"사용하여" in message.content
                     ):
+                        logger.info(f"✅ {tool_name} 도구 사용 패턴 감지됨!")
                         return True
 
+        logger.info(f"❌ {tool_name} 도구 사용 감지되지 않음")
         return False
 
     except Exception as e:

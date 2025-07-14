@@ -13,28 +13,49 @@ SESSION_DATA: Dict[str, List[BaseMessage]] = {}
 PENDING_APPROVALS: Dict[str, Dict] = {}  # 승인 대기 중인 작업들
 SESSION_USER_INFO: Dict[str, Dict] = {}
 
+from contextvars import ContextVar
+from typing import Optional, Dict, Any
+import logging
 
-def set_session_user_info(session_id: str, user_id: int, user_name: str) -> None:
-    """세션에 유저 정보 저장"""
-    SESSION_USER_INFO[session_id] = {
-        "user_id": user_id,
-        "user_name": user_name,
-        "updated_at": datetime.now(),
-    }
-    logger.info(
-        f"👤 유저 정보 저장 [세션: {session_id[:8]}...] [유저: {user_name}({user_id})]"
-    )
+logger = logging.getLogger(__name__)
 
-
-def get_session_user_info(session_id: str) -> Optional[Dict]:
-    """세션의 유저 정보 조회"""
-    return SESSION_USER_INFO.get(session_id)
+# 스레드별 사용자 컨텍스트 저장
+_user_context: ContextVar[Optional[Dict[str, Any]]] = ContextVar(
+    "user_context", default=None
+)
 
 
-def clear_session_user_info(session_id: str) -> None:
-    """세션 유저 정보 삭제"""
-    if session_id in SESSION_USER_INFO:
-        del SESSION_USER_INFO[session_id]
+class UserContext:
+    """사용자 인증 컨텍스트 매니저"""
+
+    def __init__(
+        self, user_id: int, user_name: str, access_token: str, session_id: str
+    ):
+        self.context_data = {
+            "user_id": user_id,
+            "user_name": user_name,
+            "access_token": access_token,
+            "session_id": session_id,
+        }
+
+    def __enter__(self):
+        """컨텍스트 진입 시 사용자 정보 설정"""
+        _user_context.set(self.context_data)
+        logger.debug(
+            f"🔑 사용자 컨텍스트 설정 [사용자: {self.context_data['user_name']}] [세션: {self.context_data['session_id'][:8]}...]"
+        )
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """컨텍스트 종료 시 정리"""
+        _user_context.set(None)
+        logger.debug("🔓 사용자 컨텍스트 정리 완료")
+
+
+def get_current_access_token() -> Optional[str]:
+    """현재 사용자의 AccessToken 가져오기"""
+    context = _user_context.get()
+    return context.get("access_token") if context else None
 
 
 def get_session_data(session_id: str) -> List[BaseMessage]:

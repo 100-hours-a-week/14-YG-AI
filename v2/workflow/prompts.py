@@ -115,9 +115,8 @@ def get_create_agent_prompt() -> str:
 - 생성 결과 안내
 
 ## 프로세스:
-1. URL이 없으면 request_additional_info로 요청
-2. URL 확보 후 create_post 도구 실행
-3. 결과 안내
+1.. URL 확보 후 create_post 도구 실행
+2. 결과 안내
 """
 
 
@@ -149,7 +148,7 @@ def get_supervisor_prompt() -> str:
 
 ### 4. CREATE 에이전트
 - **역할**: 공구 생성
-- **담당 업무**: 새로운 공구 게시글 작성, 공구 개설, 공구 등록
+- **담당 업무**: URL을 토대로 새로운 공구 게시글 작성, 공구 개설, 공구 등록
 - **예시**: "공구 만들고 싶어요", "새 공구 올려줘", "공구 생성해줘"
 
 ## 라우팅 가이드라인:
