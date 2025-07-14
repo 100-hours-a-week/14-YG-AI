@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 
 from config import settings
 from utils import format_health_check
-from core.session import get_session_count, get_pending_approval_count
+from core.session import get_session_count
 
 logger = logging.getLogger(__name__)
 
@@ -44,18 +44,16 @@ async def health_check():
 
         # 세션 및 승인 통계
         active_sessions = get_session_count()
-        pending_approvals = get_pending_approval_count()
 
         # 기본 헬스체크 응답
         health_data = format_health_check(
             supervisor_initialized=supervisor_initialized,
             active_sessions=active_sessions,
-            pending_approvals=pending_approvals,
         )
 
         logger.info(
             f"💊 헬스체크 [슈퍼바이저: {supervisor_initialized}] "
-            f"[세션: {active_sessions}개] [승인: {pending_approvals}개]"
+            f"[세션: {active_sessions}개]"
         )
 
         return health_data
@@ -83,7 +81,6 @@ async def detailed_health_check():
 
         supervisor_initialized = supervisor_app is not None
         active_sessions = get_session_count()
-        pending_approvals = get_pending_approval_count()
 
         # 시스템 리소스 정보
         memory = psutil.virtual_memory()
@@ -106,7 +103,6 @@ async def detailed_health_check():
             "application": {
                 "supervisor_initialized": supervisor_initialized,
                 "active_sessions": active_sessions,
-                "pending_approvals": pending_approvals,
                 "environment": settings.environment,
                 "version": settings.app_version,
             },

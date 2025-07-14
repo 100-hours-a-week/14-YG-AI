@@ -17,7 +17,6 @@ from utils import (
     format_sse_data,
     format_error_response,
     format_ai_response,
-    format_approval_request,
     format_processing_message,
     format_completion_message,
     format_chat_history,
@@ -27,7 +26,6 @@ from utils import (
 from core.session import (
     get_session_data,
     add_message_to_session,
-    add_pending_approval,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,6 +47,7 @@ class ChatMessage(BaseModel):
     session_id: Optional[str] = None
     user_id: int  # 백엔드에서 검증된 필수 값
     user_name: str  # 백엔드에서 검증된 필수 값
+    access_token: str  # 인증 토큰 필수 값
 
     @field_validator("message")
     def validate_message(cls, v):
@@ -76,6 +75,14 @@ class ChatMessage(BaseModel):
             raise ValueError("유효한 사용자 ID가 필요합니다")
         return v
 
+    @field_validator("access_token")
+    def validate_access_token(cls, v):
+        if not v:
+            raise ValueError("인증 토큰이 None입니다")
+        if not v.strip():
+            raise ValueError("인증 토큰이 빈 문자열입니다")
+        return v.strip()
+
 
 from core.session import UserContext
 
@@ -86,7 +93,7 @@ async def process_message_stream(
     user_id: int,
     user_name: str,
     supervisor_app,
-    access_token: str = None,
+    access_token: str,
 ) -> AsyncGenerator[str, None]:
     """
     메시지를 스트리밍 방식으로 처리
@@ -107,10 +114,6 @@ async def process_message_stream(
         yield await format_sse_data(
             format_error_response("Supervisor가 초기화되지 않았습니다.")
         )
-        return
-
-    if not access_token:
-        yield await format_sse_data(format_error_response("인증 토큰이 없습니다."))
         return
 
     # 사용자 컨텍스트 설정
@@ -196,10 +199,7 @@ async def process_message_stream(
                 workflow_input = {
                     "messages": conversation_history,
                     "next_agent": "supervisor",
-                    "human_approval_required": False,
-                    "human_approved": False,
                     "current_task": None,
-                    "approval_id": None,
                     "session_id": session_id,
                     "user_id": user_id,
                     "user_name": user_name,
@@ -253,14 +253,6 @@ async def process_message_stream(
                         if isinstance(new_msg, AIMessage):
                             response_dict = basemessage_to_dict(new_msg)
                             # 승인 필요 에이전트인 경우 자동으로 승인 플래그 설정
-                            if final_state.get("human_approval_required"):
-                                response_dict["approval_required"] = True
-                                response_dict["approval_id"] = final_state.get(
-                                    "approval_id"
-                                )
-                                response_dict["task_description"] = final_state.get(
-                                    "current_task"
-                                )
 
                             agent_name = response_dict.get("agent", "unknown_agent")
 
@@ -283,36 +275,6 @@ async def process_message_stream(
                             if response_dict.get("hidden"):
                                 continue  # ✅ 프론트엔드로 전송하지 않음
 
-                            # 승인이 필요한 경우
-                            if response_dict.get("approval_required"):
-                                approval_id = response_dict.get("approval_id")
-
-                                # 승인 정보 저장
-                                add_pending_approval(
-                                    approval_id=approval_id,
-                                    session_id=session_id,
-                                    task_description=response_dict.get(
-                                        "task_description"
-                                    ),
-                                    state=final_state,
-                                )
-
-                                logger.info(
-                                    f"🔔 승인 요청 생성 [ID: {approval_id}] "
-                                    f"[작업: {response_dict.get('task_description')}]"
-                                )
-
-                                # 승인 요청 이벤트 전송
-                                yield await format_sse_data(
-                                    format_approval_request(
-                                        approval_id=approval_id,
-                                        task_description=response_dict.get(
-                                            "task_description"
-                                        ),
-                                        content=response_dict["content"],
-                                        agent=response_dict["agent"],
-                                    )
-                                )
                             else:
                                 # 일반 AI 응답
                                 logger.info(
@@ -343,7 +305,7 @@ async def process_message_stream(
 
 
 @router.post("/stream")
-async def chat_stream_endpoint(chat_message: ChatMessage, request: Request):
+async def chat_stream_endpoint(chat_message: ChatMessage):
     """
     스트리밍 방식 채팅 엔드포인트
 
@@ -354,20 +316,6 @@ async def chat_stream_endpoint(chat_message: ChatMessage, request: Request):
         StreamingResponse: SSE 스트리밍 응답
     """
 
-    # AccessToken 추출
-    access_token = request.cookies.get("AccessToken")
-    # access_token = request.cookies.get("next-auth.session-token")
-
-    if not access_token:
-        print("❌ AccessToken이 없습니다. 로그인해 주세요.")
-        raise HTTPException(
-            status_code=401, detail="AccessToken이 없습니다. 로그인해 주세요."
-        )
-
-    # 디버깅: 모든 쿠키 확인
-    # all_cookies = dict(request.cookies)
-    # logger.info(f"🍪 수신된 모든 쿠키: {all_cookies}")
-
     if not chat_message.message.strip():
         raise HTTPException(status_code=400, detail="메시지가 비어있습니다.")
 
@@ -375,6 +323,15 @@ async def chat_stream_endpoint(chat_message: ChatMessage, request: Request):
 
     user_id = chat_message.user_id
     user_name = chat_message.user_name
+    access_token = chat_message.access_token
+
+    # 디버깅 로그 추가
+    print(f"🔍 디버깅:")
+    print(f"  - 받은 chat_message: {chat_message}")
+    print(f"  - user_id: {user_id}")
+    print(f"  - user_name: {user_name}")
+    print(f"  - access_token: {access_token}")
+    print(f"  - access_token type: {type(access_token)}")
 
     if not user_id or not user_name:
         raise HTTPException(status_code=400, detail="사용자 정보가 없습니다.")

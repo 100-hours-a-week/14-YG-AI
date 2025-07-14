@@ -157,10 +157,6 @@ class WorkflowSettings(BaseSettings):
     default_search_limit: int = 5
     max_search_limit: int = 20
 
-    # 승인 설정
-    approval_timeout_minutes: int = 30
-    max_pending_approvals: int = 100
-
     class Config:
         env_prefix = "WORKFLOW_"
         extra = "ignore"

@@ -30,8 +30,6 @@ def basemessage_to_dict(message: BaseMessage) -> dict:
         "timestamp": datetime.now().isoformat(),
         "hidden": message.additional_kwargs.get("hidden", False),  # ✅ 추가
         # HITL 관련 추가 정보
-        "approval_required": message.additional_kwargs.get("approval_required", False),
-        "approval_id": message.additional_kwargs.get("approval_id"),
         "task_description": message.additional_kwargs.get("task_description"),
     }
 
@@ -63,31 +61,6 @@ def format_error_response(error_message: str, error_type: str = "error") -> dict
     return {
         "type": error_type,
         "content": error_message,
-        "timestamp": datetime.now().isoformat(),
-    }
-
-
-def format_approval_request(
-    approval_id: str, task_description: str, content: str, agent: str
-) -> dict:
-    """
-    승인 요청 메시지 포맷팅
-
-    Args:
-        approval_id: 승인 ID
-        task_description: 작업 설명
-        content: 메시지 내용
-        agent: 에이전트 이름
-
-    Returns:
-        dict: 승인 요청 딕셔너리
-    """
-    return {
-        "type": "approval_required",
-        "approval_id": approval_id,
-        "task_description": task_description,
-        "content": content,
-        "agent": agent,
         "timestamp": datetime.now().isoformat(),
     }
 
@@ -162,16 +135,13 @@ def format_chat_history(messages: list) -> dict:
     }
 
 
-def format_health_check(
-    supervisor_initialized: bool, active_sessions: int, pending_approvals: int
-) -> dict:
+def format_health_check(supervisor_initialized: bool, active_sessions: int) -> dict:
     """
     헬스체크 응답 포맷팅
 
     Args:
         supervisor_initialized: 슈퍼바이저 초기화 상태
         active_sessions: 활성 세션 수
-        pending_approvals: 대기 중인 승인 수
 
     Returns:
         dict: 헬스체크 응답
@@ -180,7 +150,6 @@ def format_health_check(
         "status": "healthy" if supervisor_initialized else "unhealthy",
         "supervisor_initialized": supervisor_initialized,
         "active_sessions": active_sessions,
-        "pending_approvals": pending_approvals,
         "timestamp": datetime.now().isoformat(),
     }
 
@@ -198,48 +167,6 @@ def format_session_cleared(session_id: str) -> dict:
     return {
         "status": "cleared",
         "session_id": session_id,
-        "timestamp": datetime.now().isoformat(),
-    }
-
-
-def format_approval_processed(
-    approved: bool, session_id: str, approval_id: str
-) -> dict:
-    """
-    승인 처리 결과 포맷팅
-
-    Args:
-        approved: 승인 여부
-        session_id: 세션 ID
-        approval_id: 승인 ID
-
-    Returns:
-        dict: 승인 처리 결과
-    """
-    return {
-        "status": "processed",
-        "approved": approved,
-        "session_id": session_id,
-        "approval_id": approval_id,
-        "timestamp": datetime.now().isoformat(),
-    }
-
-
-def format_pending_approvals(session_id: str, pending_approvals: list) -> dict:
-    """
-    대기 중인 승인 목록 포맷팅
-
-    Args:
-        session_id: 세션 ID
-        pending_approvals: 대기 중인 승인 리스트
-
-    Returns:
-        dict: 대기 중인 승인 목록
-    """
-    return {
-        "session_id": session_id,
-        "pending_approvals": pending_approvals,
-        "total_count": len(pending_approvals),
         "timestamp": datetime.now().isoformat(),
     }
 

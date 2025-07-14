@@ -140,49 +140,6 @@
         .agent-badge.participate { background: #ffc107; color: #333; }
         .agent-badge.create { background: #f284de; color: #333; }
         .agent-badge.system { background: #6c757d; }
-        .approval-request {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 15px;
-            padding: 15px;
-            margin: 10px 0;
-            animation: fadeInUp 0.3s ease;
-        }
-
-        .approval-buttons {
-            margin-top: 10px;
-            text-align: center;
-        }
-
-        .approval-btn {
-            padding: 8px 20px;
-            margin: 0 5px;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.3s ease;
-        }
-
-        .approval-btn.approve {
-            background: #28a745;
-            color: white;
-        }
-
-        .approval-btn.approve:hover {
-            background: #218838;
-            transform: translateY(-2px);
-        }
-
-        .approval-btn.reject {
-            background: #dc3545;
-            color: white;
-        }
-
-        .approval-btn.reject:hover {
-            background: #c82333;
-            transform: translateY(-2px);
-        }
 
         .chat-input-container {
             padding: 20px;
@@ -1185,60 +1142,6 @@
             document.getElementById('typingIndicator').style.display = 'none';
         }
 
-        function showApprovalRequest(approvalId, taskDescription, content) {
-            const messagesContainer = document.getElementById('chatMessages');
-            const approvalDiv = document.createElement('div');
-            approvalDiv.className = 'approval-request';
-            approvalDiv.id = `approval-${approvalId}`;
-            
-            approvalDiv.innerHTML = `
-                <h4>🔔 승인 요청</h4>
-                <p><strong>작업:</strong> ${taskDescription}</p>
-                <p><strong>상세:</strong> ${content}</p>
-                <div class="approval-buttons">
-                    <button class="approval-btn approve" onclick="handleApproval('${approvalId}', true)">
-                        ✅ 승인
-                    </button>
-                    <button class="approval-btn reject" onclick="handleApproval('${approvalId}', false)">
-                        ❌ 거부
-                    </button>
-                </div>
-            `;
-            
-            const typingIndicator = document.getElementById('typingIndicator');
-            messagesContainer.insertBefore(approvalDiv, typingIndicator);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-
-        async function handleApproval(approvalId, approved) {
-            try {
-                const response = await fetch(`/chat/approve/${sessionId}/${approvalId}?approved=${approved}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                });
-                
-                const result = await response.json();
-                
-                // 승인 요청 UI 제거
-                const approvalElement = document.getElementById(`approval-${approvalId}`);
-                if (approvalElement) {
-                    approvalElement.remove();
-                }
-                
-                // 결과 메시지 표시
-                const resultMessage = approved ? 
-                    '✅ 작업이 승인되었습니다.' : 
-                    '❌ 작업이 취소되었습니다.';
-                addMessage(resultMessage, 'ai', 'system');
-                
-            } catch (error) {
-                console.error('승인 처리 중 오류:', error);
-                addMessage('❌ 승인 처리 중 오류가 발생했습니다.', 'ai', 'system');
-            }
-        }
-
         function showError(message) {
             const messagesContainer = document.getElementById('chatMessages');
             const errorDiv = document.createElement('div');
@@ -1274,13 +1177,15 @@
             //const userInfo = getCurrentUserInfo();  실제 유저 정보 전달
             const userInfo = {
                 user_id: 13,  // 실제로는 로그인 정보에서 가져옴
-                user_name: "이정택"  // 실제로는 로그인 정보에서 가져옴
+                user_name: "이정택",  // 실제로는 로그인 정보에서 가져옴
+                access_token: "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMyIsImlhdCI6MTc1MjQ5NTAzOSwiZXhwIjoxNzUyNDk4NjM5fQ.J9CBcjAtL_OEyRKmu2MWaoV0K9YkK95rFdSJmRr40qA"
             };
             const requestBody = {
                 message: message,
                 session_id: sessionId,
                 user_id: userInfo.user_id,      // 추가
-                user_name: userInfo.user_name   // 추가
+                user_name: userInfo.user_name,   // 추가
+                access_token: userInfo.access_token // 추가
             };
             
             // UI 상태 업데이트
@@ -1364,15 +1269,6 @@
                 case 'ai_response':
                     hideTypingIndicator();
                     addMessage(data.content, 'ai', data.agent, data.timestamp);
-                    break;
-                    
-                case 'approval_required':
-                    hideTypingIndicator();
-                    showApprovalRequest(
-                        data.approval_id,
-                        data.task_description,
-                        data.content
-                    );
                     break;
                     
                 case 'complete':

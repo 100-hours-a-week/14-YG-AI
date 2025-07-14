@@ -23,18 +23,6 @@ def get_current_time() -> str:
     return datetime.now().strftime("%Y년 %m월 %d일 %H시 %M분")
 
 
-# @tool
-# def request_human_approval(task_description: str, details: str) -> str:
-#     """사용자 승인을 요청합니다."""
-#     return f"🔔 사용자 승인이 필요합니다.\n작업: {task_description}\n상세: {details}"
-
-
-@tool
-def request_additional_info(question: str, context: str = "") -> str:
-    """추가 정보 요청 (승인과 무관)"""
-    return f"❓ {question}\n{context}"
-
-
 # =============================================================================
 # LLM 생성 함수
 # =============================================================================
@@ -109,7 +97,7 @@ def create_create_agent():
     """공구 생성 에이전트"""
 
     llm = create_base_llm(temperature=0.0)
-    tools = [create_post, request_additional_info]
+    tools = [create_post]
 
     from .prompts import get_create_agent_prompt
 
@@ -127,7 +115,7 @@ def create_participate_agent():
     """공구 참여 및 생성 에이전트"""
 
     llm = create_base_llm(temperature=0.0)
-    tools = [request_additional_info]
+    tools = []
 
     from .prompts import get_participate_agent_prompt
 
@@ -230,13 +218,13 @@ def get_agent_info() -> dict:
         "participate_agent": {
             "name": "공구참여 에이전트",
             "description": "공구 참여",
-            "tools": ["request_additional_info"],
+            "tools": ["get_current_time"],
             "temperature": 0.2,
         },
         "create_agent": {
             "name": "공구생성 에이전트",
             "description": "공구 생성",
-            "tools": ["create_post", "request_additional_info"],
+            "tools": ["create_post"],
             "temperature": 0.0,
         },
     }

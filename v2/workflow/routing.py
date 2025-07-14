@@ -244,60 +244,6 @@ class MessageRouter:
         )
 
 
-class RoutingAnalyzer:
-    """라우팅 분석 및 통계"""
-
-    def __init__(self):
-        self.routing_history = []
-
-    def add_routing_record(
-        self, message: str, decision: RouterDecision, execution_time_ms: float = 0
-    ):
-        """라우팅 기록 추가"""
-        record = {
-            "timestamp": logger.info.__globals__.get(
-                "datetime", type("", (), {"now": lambda: "unknown"})
-            ).now(),
-            "message": message[:100],  # 처음 100자만 저장
-            "decision": decision.to_dict(),
-            "execution_time_ms": execution_time_ms,
-        }
-        self.routing_history.append(record)
-
-        # 최대 1000개 기록 유지
-        if len(self.routing_history) > 1000:
-            self.routing_history = self.routing_history[-1000:]
-
-    def get_routing_stats(self) -> Dict[str, Any]:
-        """라우팅 통계 조회"""
-        if not self.routing_history:
-            return {"total_routings": 0}
-
-        # 에이전트별 통계
-        agent_counts = {}
-        confidence_sum = 0
-
-        for record in self.routing_history:
-            decision = record["decision"]
-            agent = decision["selected_agent"]
-
-            agent_counts[agent] = agent_counts.get(agent, 0) + 1
-            confidence_sum += decision["confidence"]
-
-        total = len(self.routing_history)
-
-        return {
-            "total_routings": total,
-            "agent_distribution": agent_counts,
-            "average_confidence": round(confidence_sum / total, 3),
-            "most_used_agent": max(agent_counts.items(), key=lambda x: x[1])[0],
-        }
-
-    def get_recent_routings(self, limit: int = 10) -> List[Dict]:
-        """최근 라우팅 기록 조회"""
-        return self.routing_history[-limit:]
-
-
 # =============================================================================
 # 라우팅 유틸리티 함수들
 # =============================================================================
@@ -387,14 +333,6 @@ def get_global_router() -> MessageRouter:
     if _global_router is None:
         _global_router = create_message_router()
     return _global_router
-
-
-def get_global_analyzer() -> RoutingAnalyzer:
-    """전역 분석기 인스턴스 반환"""
-    global _global_analyzer
-    if _global_analyzer is None:
-        _global_analyzer = RoutingAnalyzer()
-    return _global_analyzer
 
 
 if __name__ == "__main__":

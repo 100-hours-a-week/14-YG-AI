@@ -9,7 +9,6 @@ from utils import (
     format_sse_data,
     format_error_response,
     format_ai_response,
-    format_approval_request,
     format_processing_message,
     format_completion_message,
     format_structured_search_response,  # 추가
@@ -34,37 +33,26 @@ async def create_chat_stream(
 
         # 새로운 메시지들 스트리밍 전송
         for message_data in result["new_messages"]:
-            if message_data.get("requires_approval", False):
-                # 승인 요청 메시지
-                yield await format_sse_data(
-                    format_approval_request(
-                        approval_id=message_data["approval_id"],
-                        task_description=message_data.get("task_description", ""),
-                        content=message_data["content"],
-                        agent=message_data["agent"],
-                    )
+            # AI 응답 - 구조화된 검색 결과 확인
+            if (
+                message_data.get("agent") == "search_agent"
+                and "STRUCTURED_RESULT_START" in message_data["content"]
+            ):
+                # 구조화된 검색 결과 처리
+                formatted_response = format_structured_search_response(
+                    content=message_data["content"],
+                    agent=message_data["agent"],
+                    timestamp=message_data["timestamp"],
                 )
             else:
-                # AI 응답 - 구조화된 검색 결과 확인
-                if (
-                    message_data.get("agent") == "search_agent"
-                    and "STRUCTURED_RESULT_START" in message_data["content"]
-                ):
-                    # 구조화된 검색 결과 처리
-                    formatted_response = format_structured_search_response(
-                        content=message_data["content"],
-                        agent=message_data["agent"],
-                        timestamp=message_data["timestamp"],
-                    )
-                else:
-                    # 일반 AI 응답
-                    formatted_response = format_ai_response(
-                        content=message_data["content"],
-                        agent=message_data["agent"],
-                        timestamp=message_data["timestamp"],
-                    )
+                # 일반 AI 응답
+                formatted_response = format_ai_response(
+                    content=message_data["content"],
+                    agent=message_data["agent"],
+                    timestamp=message_data["timestamp"],
+                )
 
-                yield await format_sse_data(formatted_response)
+            yield await format_sse_data(formatted_response)
 
         # 완료 메시지 전송
         yield await format_sse_data(format_completion_message())
@@ -73,64 +61,6 @@ async def create_chat_stream(
         logger.error(f"❌ 스트리밍 처리 오류: {e}", exc_info=True)
         yield await format_sse_data(
             format_error_response(f"스트리밍 처리 중 오류가 발생했습니다: {str(e)}")
-        )
-
-
-async def create_approval_stream(
-    session_id: str, approval_id: str, approved: bool, reason: Optional[str] = None
-) -> AsyncGenerator[str, None]:
-    """
-    승인 처리 결과를 스트리밍 방식으로 전송
-
-    Args:
-        session_id: 세션 ID
-        approval_id: 승인 ID
-        approved: 승인 여부
-        reason: 승인/거부 사유
-
-    Yields:
-        str: SSE 형식의 응답 데이터
-    """
-    try:
-        from .message import ApprovalProcessor
-
-        # 승인 처리
-        result = ApprovalProcessor.process_approval(
-            session_id=session_id,
-            approval_id=approval_id,
-            approved=approved,
-            reason=reason,
-        )
-
-        if not result["success"]:
-            yield await format_sse_data(format_error_response(result["error"]))
-            return
-
-        # 승인 처리 결과 메시지들 전송
-        for message_data in result["new_messages"]:
-            yield await format_sse_data(
-                format_ai_response(
-                    content=message_data["content"],
-                    agent=message_data["agent"],
-                    timestamp=message_data["timestamp"],
-                )
-            )
-
-        # 완료 메시지 전송
-        yield await format_sse_data(format_completion_message())
-
-        logger.info(
-            f"✅ 승인 결과 스트리밍 완료 [ID: {approval_id[:8]}...] [승인: {approved}]"
-        )
-
-    except Exception as e:
-        logger.error(
-            f"❌ 승인 결과 스트리밍 오류 [ID: {approval_id[:8]}...]: {e}", exc_info=True
-        )
-        yield await format_sse_data(
-            format_error_response(
-                f"승인 처리 스트리밍 중 오류가 발생했습니다: {str(e)}"
-            )
         )
 
 
@@ -189,32 +119,6 @@ def validate_stream_request(message: str, session_id: str) -> Dict[str, Any]:
     return {"valid": True}
 
 
-def validate_approval_request(
-    session_id: str, approval_id: str, approved: bool
-) -> Dict[str, Any]:
-    """
-    승인 요청 유효성 검사
-
-    Args:
-        session_id: 세션 ID
-        approval_id: 승인 ID
-        approved: 승인 여부
-
-    Returns:
-        Dict[str, Any]: 검증 결과
-    """
-    if not session_id or not session_id.strip():
-        return {"valid": False, "error": "세션 ID가 필요합니다."}
-
-    if not approval_id or not approval_id.strip():
-        return {"valid": False, "error": "승인 ID가 필요합니다."}
-
-    if not isinstance(approved, bool):
-        return {"valid": False, "error": "승인 여부는 boolean 값이어야 합니다."}
-
-    return {"valid": True}
-
-
 async def handle_chat_stream(
     message_processor, message: str, session_id: str
 ) -> AsyncGenerator[str, None]:
@@ -238,35 +142,6 @@ async def handle_chat_stream(
 
     # 스트리밍 처리
     async for chunk in create_chat_stream(message_processor, message, session_id):
-        yield chunk
-
-
-async def handle_approval_stream(
-    session_id: str, approval_id: str, approved: bool, reason: Optional[str] = None
-) -> AsyncGenerator[str, None]:
-    """
-    승인 스트림 처리
-
-    Args:
-        session_id: 세션 ID
-        approval_id: 승인 ID
-        approved: 승인 여부
-        reason: 승인/거부 사유
-
-    Yields:
-        str: SSE 형식의 응답 데이터
-    """
-    # 요청 검증
-    validation = validate_approval_request(session_id, approval_id, approved)
-    if not validation["valid"]:
-        async for chunk in create_error_stream(validation["error"]):
-            yield chunk
-        return
-
-    # 승인 스트리밍 처리
-    async for chunk in create_approval_stream(
-        session_id, approval_id, approved, reason
-    ):
         yield chunk
 
 
@@ -299,30 +174,6 @@ class StreamingManager:
         """
         async for chunk in handle_chat_stream(
             self.message_processor, message, session_id
-        ):
-            yield chunk
-
-    async def stream_approval_response(
-        self,
-        session_id: str,
-        approval_id: str,
-        approved: bool,
-        reason: Optional[str] = None,
-    ) -> AsyncGenerator[str, None]:
-        """
-        승인 응답 스트리밍
-
-        Args:
-            session_id: 세션 ID
-            approval_id: 승인 ID
-            approved: 승인 여부
-            reason: 승인/거부 사유
-
-        Yields:
-            str: SSE 형식의 응답 데이터
-        """
-        async for chunk in handle_approval_stream(
-            session_id, approval_id, approved, reason
         ):
             yield chunk
 
