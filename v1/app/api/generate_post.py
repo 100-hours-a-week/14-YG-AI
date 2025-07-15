@@ -8,15 +8,6 @@ from langchain_teddynote.messages import random_uuid
 from graph.graph import app
 from graph.graph_output import invoke_graph_json
 
-import asyncio
-
-async def run_generate_post(input: dict):
-    config = RunnableConfig(
-        recursion_limit=RECURSION_LIMIT, configurable={"thread_id": random_uuid()}
-    )
-
-    return await invoke_graph_json(app, input, config, node_names=["product_post_gen"])
-
 class GeneratePostRequest(BaseModel):
     url: str
 
@@ -58,3 +49,11 @@ async def generate_post(req: GeneratePostRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
         )
+
+
+async def run_generate_post(input: dict):
+    config = RunnableConfig(
+        recursion_limit=RECURSION_LIMIT, configurable={"thread_id": random_uuid()}
+    )
+
+    return await invoke_graph_json(app, input, config, node_names=["product_post_gen"])
