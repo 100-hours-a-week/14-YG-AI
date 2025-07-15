@@ -1153,17 +1153,6 @@
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
-        function getCurrentUserInfo() {
-            const token = localStorage.getItem('authToken');
-            if (token) {
-                const payload = JSON.parse(atob(token.split('.')[1]));
-                return {
-                    user_id: payload.user_id,
-                    user_name: payload.user_name
-                };
-            }
-        }
-
         async function sendMessage() {
             if (isProcessing) return;
             
@@ -1178,14 +1167,12 @@
             const userInfo = {
                 user_id: 13,  // 실제로는 로그인 정보에서 가져옴
                 user_name: "이정택",  // 실제로는 로그인 정보에서 가져옴
-                access_token: "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMyIsImlhdCI6MTc1MjQ5NTAzOSwiZXhwIjoxNzUyNDk4NjM5fQ.J9CBcjAtL_OEyRKmu2MWaoV0K9YkK95rFdSJmRr40qA"
             };
             const requestBody = {
                 message: message,
                 session_id: sessionId,
                 user_id: userInfo.user_id,      // 추가
                 user_name: userInfo.user_name,   // 추가
-                access_token: userInfo.access_token // 추가
             };
             
             // UI 상태 업데이트
@@ -1209,7 +1196,9 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Accept': 'text/event-stream'
                     },
+                    credentials: 'include',
                     body: JSON.stringify(requestBody)
                 });
                 

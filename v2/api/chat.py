@@ -5,7 +5,7 @@ from typing import AsyncGenerator
 from datetime import datetime
 import logging
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Cookie
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from langfuse import get_client
@@ -47,7 +47,6 @@ class ChatMessage(BaseModel):
     session_id: Optional[str] = None
     user_id: int  # 백엔드에서 검증된 필수 값
     user_name: str  # 백엔드에서 검증된 필수 값
-    access_token: str  # 인증 토큰 필수 값
 
     @field_validator("message")
     def validate_message(cls, v):
@@ -74,14 +73,6 @@ class ChatMessage(BaseModel):
         if not v or v <= 0:
             raise ValueError("유효한 사용자 ID가 필요합니다")
         return v
-
-    @field_validator("access_token")
-    def validate_access_token(cls, v):
-        if not v:
-            raise ValueError("인증 토큰이 None입니다")
-        if not v.strip():
-            raise ValueError("인증 토큰이 빈 문자열입니다")
-        return v.strip()
 
 
 from core.session import UserContext
@@ -304,17 +295,24 @@ async def process_message_stream(
             )
 
 
+#
 @router.post("/stream")
-async def chat_stream_endpoint(chat_message: ChatMessage):
+async def chat_stream_endpoint(
+    chat_message: ChatMessage, access_token: str = Cookie(None, alias="AccessToken")
+):
     """
     스트리밍 방식 채팅 엔드포인트
 
     Args:
         chat_message: 채팅 메시지 (message, session_id)
+        access_token: 사용자 인증 토큰 (쿠키에서 가져옴, httpOnly 방식)
 
     Returns:
         StreamingResponse: SSE 스트리밍 응답
     """
+    print(access_token)
+    if not access_token:
+        raise HTTPException(status_code=401, detail="인증 토큰이 없습니다.")
 
     if not chat_message.message.strip():
         raise HTTPException(status_code=400, detail="메시지가 비어있습니다.")
@@ -323,7 +321,6 @@ async def chat_stream_endpoint(chat_message: ChatMessage):
 
     user_id = chat_message.user_id
     user_name = chat_message.user_name
-    access_token = chat_message.access_token
 
     # 디버깅 로그 추가
     print(f"🔍 디버깅:")
