@@ -41,9 +41,9 @@ class DatabaseSettings(BaseSettings):
 class GoogleCloudSettings(BaseSettings):
     """Google Cloud 및 Vertex AI 설정"""
 
-    project: str = "deft-observer-456807-c5"
-    location: str = "us-central1"
-    credentials_path: str = "deft-observer-456807-c5-e9dda0532301.json"
+    project: str = os.getenv("GOOGLE_CLOUD_PROJECT")
+    location: str = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+    credentials_path: str = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
     # LLM 설정
     model_name: str = "gemini-2.0-flash"
