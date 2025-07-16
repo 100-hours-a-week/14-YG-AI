@@ -1,11 +1,12 @@
 # api/chat.py
+import sys
 import uuid
 import asyncio
 from typing import AsyncGenerator
 from datetime import datetime
 import logging
 
-from fastapi import APIRouter, HTTPException, Cookie
+from fastapi import APIRouter, HTTPException, Cookie, Depends
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from langfuse import get_client
@@ -19,8 +20,6 @@ from utils import (
     format_ai_response,
     format_processing_message,
     format_completion_message,
-    format_chat_history,
-    format_session_cleared,
     truncate_content,
 )
 from core.session import (
@@ -41,12 +40,12 @@ from typing import Optional
 
 
 class ChatMessage(BaseModel):
-    """채팅 메시지 모델 (간소화 버전)"""
+    """채팅 메시지 모델"""
 
     message: str
     session_id: Optional[str] = None
-    user_id: int  # 백엔드에서 검증된 필수 값
-    user_name: str  # 백엔드에서 검증된 필수 값
+    user_id: int
+    user_name: str
 
     @field_validator("message")
     def validate_message(cls, v):
@@ -272,6 +271,7 @@ async def process_message_stream(
                                     f"   - AI 응답 전송 [에이전트: {response_dict['agent']}] "
                                     f"[내용: {truncate_content(response_dict['content'], 50)}]"
                                 )
+                                print(f"[내용:{response_dict['content']}")
                                 yield await format_sse_data(
                                     format_ai_response(
                                         content=response_dict["content"],
@@ -295,10 +295,45 @@ async def process_message_stream(
             )
 
 
-#
+def get_supervisor_app():
+    """범용 워크플로우 앱 의존성 함수"""
+    supervisor_app = None
+
+    # 1순위: 현재 실행 중인 메인 모듈에서 가져오기
+    main_module = sys.modules.get("__main__")
+    if main_module and hasattr(main_module, "supervisor_app"):
+        supervisor_app = getattr(main_module, "supervisor_app")
+
+    # 2순위: app.py에서 가져오기 시도
+    if supervisor_app is None:
+        try:
+            import app
+
+            supervisor_app = getattr(app, "supervisor_app", None)
+        except ImportError:
+            pass
+
+    # 3순위: local.py에서 가져오기 시도
+    if supervisor_app is None:
+        try:
+            import local
+
+            supervisor_app = getattr(local, "supervisor_app", None)
+        except ImportError:
+            pass
+
+    if supervisor_app is None:
+        raise HTTPException(
+            status_code=503, detail="워크플로우가 초기화되지 않았습니다"
+        )
+    return supervisor_app
+
+
 @router.post("/stream")
 async def chat_stream_endpoint(
-    chat_message: ChatMessage, access_token: str = Cookie(None, alias="AccessToken")
+    chat_message: ChatMessage,
+    access_token: str = Cookie(None, alias="AccessToken"),
+    supervisor_app=Depends(get_supervisor_app),
 ):
     """
     스트리밍 방식 채팅 엔드포인트
@@ -332,9 +367,6 @@ async def chat_stream_endpoint(
 
     if not user_id or not user_name:
         raise HTTPException(status_code=400, detail="사용자 정보가 없습니다.")
-
-    # supervisor_app은 전역에서 가져와야 함 (의존성 주입으로 개선 예정)
-    from app import supervisor_app  # 임시 방식, 나중에 개선
 
     return StreamingResponse(
         process_message_stream(

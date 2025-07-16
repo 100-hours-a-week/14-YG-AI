@@ -15,7 +15,7 @@ def read_root():
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok"}
+    return {"sta tus": "ok"}
 
 
 if __name__ == "__main__":

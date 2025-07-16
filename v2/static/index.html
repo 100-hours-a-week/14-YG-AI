@@ -517,7 +517,7 @@
         }
         .card-stats {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 8px;
             margin: 12px 0;
         }
@@ -592,22 +592,6 @@
             color: #333;
         }
 
-        .status-badge {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            background: #28a745;
-            color: white;
-            font-size: 9px;
-            padding: 3px 6px;
-            border-radius: 10px;
-            font-weight: bold;
-        }
-
-        .status-badge.closed {
-            background: #dc3545;
-        }
-
         .engagement-stats {
             display: flex;
             justify-content: space-around;
@@ -642,7 +626,7 @@
             }
             
             .card-stats {
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: 1fr 1fr 1fr;
                 gap: 6px;
             }
 
@@ -997,6 +981,10 @@
                                 <div class="stat-label">잔여 수량</div>
                                 <div class="stat-value">${item.left_amount}개</div>
                             </div>
+                            <div class="stat-item">
+                                <div class="stat-label">참여자 수</div>
+                                <div class="stat-value">${item.participant_count}명</div>
+                            </div>
                         </div>
                         <div class="card-dates">
                             <div class="date-item">
@@ -1006,21 +994,6 @@
                             <div class="date-item">
                                 <div class="date-label">📦 픽업일</div>
                                 <div class="date-value">${formatDate(item.pickup_date)}</div>
-                            </div>
-                        </div>
-                        
-                        <div class="engagement-stats">
-                            <div class="engagement-item">
-                                <span class="engagement-number">${item.view_count}</span>
-                                <span>조회</span>
-                            </div>
-                            <div class="engagement-item">
-                                <span class="engagement-number">${item.wish_count}</span>
-                                <span>관심</span>
-                            </div>
-                            <div class="engagement-item">
-                                <span class="engagement-number">${item.participant_count}</span>
-                                <span>참여</span>
                             </div>
                         </div>
                         

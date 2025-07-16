@@ -745,15 +745,9 @@ async def search_group_buy(query: str) -> str:
         # 5. LLM 필터링이 포함된 구조화된 결과 반환
         result = await format_search_results_structured(rows, cols, conditions, query)
 
-        # 디버깅 로그
-        print(
-            f"\n🔍 반환 결과에 STRUCTURED_RESULT_START 포함: {'STRUCTURED_RESULT_START' in result}"
-        )
-        print(f"📊 결과 길이: {len(result)} 문자")
-
         cur.close()
         conn.close()
-
+        print(result)
         return result
 
     except Exception as e:

@@ -123,7 +123,7 @@ class ServerSettings(BaseSettings):
 
     # FastAPI 설정
     host: str = "0.0.0.0"
-    port: int = 8000
+    port: int = 8200
     reload: bool = True
     debug: bool = True
 
@@ -187,9 +187,11 @@ class Settings(BaseSettings):
     """전체 애플리케이션 설정"""
 
     # 앱 정보
-    app_name: str = "공구 챗봇 API"
-    app_version: str = "5.0.0-hitl"
-    description: str = "공구 검색부터 참여까지, 무엇이든 물어보세요!"
+    app_name: str = "뭉치면 산다 챗봇 API"
+    app_version: str = "v1.0.0"
+    description: str = (
+        "뭉치면 산다 공동구매 게시물의 검색부터 생성까지 관련 내용은 무엇이든 물어보세요!"
+    )
 
     # 환경 설정
     environment: str = "development"

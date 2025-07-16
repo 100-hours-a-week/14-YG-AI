@@ -1,11 +1,12 @@
 # api/health.py
+import sys
 import logging
 import psutil
 from datetime import datetime
 from typing import Dict, Any
 
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, HTTPException, Depends
+
 
 from config import settings
 from utils import format_health_check
@@ -17,19 +18,40 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Health"])
 
 
-@router.get("/")
-async def root():
-    """
-    루트 엔드포인트 - 정적 파일 반환
-
-    Returns:
-        FileResponse: index.html 파일
-    """
-    return FileResponse("static/index.html")
+def get_supervisor_app():
+    """범용 워크플로우 앱 의존성 함수"""
+    supervisor_app = None
+    
+    # 1순위: 현재 실행 중인 메인 모듈에서 가져오기
+    main_module = sys.modules.get('__main__')
+    if main_module and hasattr(main_module, 'supervisor_app'):
+        supervisor_app = getattr(main_module, 'supervisor_app')
+    
+    # 2순위: app.py에서 가져오기 시도
+    if supervisor_app is None:
+        try:
+            import app
+            supervisor_app = getattr(app, 'supervisor_app', None)
+        except ImportError:
+            pass
+    
+    # 3순위: local.py에서 가져오기 시도
+    if supervisor_app is None:
+        try:
+            import local
+            supervisor_app = getattr(local, 'supervisor_app', None)
+        except ImportError:
+            pass
+    
+    if supervisor_app is None:
+        raise HTTPException(
+            status_code=503, detail="워크플로우가 초기화되지 않았습니다"
+        )
+    return supervisor_app
 
 
 @router.get("/health")
-async def health_check():
+async def health_check(supervisor_app=Depends(get_supervisor_app)):
     """
     헬스 체크 엔드포인트
 
@@ -37,9 +59,6 @@ async def health_check():
         dict: 시스템 상태 정보
     """
     try:
-        # supervisor_app 상태 확인 (전역에서 가져오기)
-        from app import supervisor_app  # 임시 방식, 나중에 개선
-
         supervisor_initialized = supervisor_app is not None
 
         # 세션 및 승인 통계
@@ -68,7 +87,7 @@ async def health_check():
 
 
 @router.get("/health/detailed")
-async def detailed_health_check():
+async def detailed_health_check(supervisor_app=Depends(get_supervisor_app)):
     """
     상세 헬스 체크 엔드포인트
 
@@ -76,28 +95,31 @@ async def detailed_health_check():
         dict: 상세 시스템 상태 정보
     """
     try:
-        # 기본 헬스체크 데이터
-        from app import supervisor_app
-
+        # 기본 상태 확인
         supervisor_initialized = supervisor_app is not None
         active_sessions = get_session_count()
 
         # 시스템 리소스 정보
         memory = psutil.virtual_memory()
-        disk = psutil.disk_usage("/")
 
-        # 데이터베이스 연결 테스트
-        db_status = await test_database_connection()
+        # 디스크 사용량 (루트 디렉토리)
+        try:
+            disk = psutil.disk_usage("/")
+        except:
+            # Windows나 다른 OS에서는 현재 디렉토리 사용
+            disk = psutil.disk_usage(".")
 
-        # Google Cloud 설정 확인
-        gc_status = test_google_cloud_config()
+        # CPU 정보
+        try:
+            load_avg = psutil.getloadavg() if hasattr(psutil, "getloadavg") else None
+        except:
+            load_avg = None
+
+        # 전체 상태 판단
+        overall_status = "healthy" if supervisor_initialized else "unhealthy"
 
         detailed_data = {
-            "status": (
-                "healthy"
-                if supervisor_initialized and db_status["connected"]
-                else "unhealthy"
-            ),
+            "status": overall_status,
             "timestamp": datetime.now().isoformat(),
             # 앱 상태
             "application": {
@@ -110,35 +132,37 @@ async def detailed_health_check():
             "system": {
                 "memory_usage_percent": memory.percent,
                 "memory_available_gb": round(memory.available / (1024**3), 2),
+                "memory_total_gb": round(memory.total / (1024**3), 2),
                 "disk_usage_percent": disk.percent,
                 "disk_free_gb": round(disk.free / (1024**3), 2),
+                "disk_total_gb": round(disk.total / (1024**3), 2),
                 "cpu_count": psutil.cpu_count(),
-                "load_average": (
-                    psutil.getloadavg() if hasattr(psutil, "getloadavg") else None
-                ),
-            },
-            # 외부 서비스 상태
-            "services": {
-                "database": db_status,
-                "google_cloud": gc_status,
-                "langfuse": {
-                    "enabled": settings.langfuse.enabled,
-                    "configured": bool(settings.langfuse.public_key),
-                },
+                "cpu_percent": psutil.cpu_percent(interval=1),  # 1초간 측정
+                "load_average": load_avg,
             },
             # 설정 상태
             "configuration": {
-                "db_host": settings.database.host,
-                "gc_project": settings.google_cloud.project,
+                "server_host": settings.server.host,
                 "server_port": settings.server.port,
                 "debug_mode": settings.server.debug,
+                "max_sessions": settings.server.max_sessions,
+                "max_message_length": settings.server.max_message_length,
+            },
+            # LangFuse 상태 (있다면)
+            "services": {
+                "langfuse": {
+                    "enabled": getattr(settings, "langfuse", {}).get("enabled", False),
+                    "configured": bool(
+                        getattr(settings, "langfuse", {}).get("public_key", False)
+                    ),
+                }
             },
         }
 
         logger.info(
             f"💊 상세 헬스체크 [상태: {detailed_data['status']}] "
             f"[메모리: {memory.percent}%] [디스크: {disk.percent}%] "
-            f"[DB: {db_status['connected']}]"
+            f"[세션: {active_sessions}개]"
         )
 
         return detailed_data
