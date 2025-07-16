@@ -1,10 +1,11 @@
 import os, asyncio, httpx
 from fastapi import FastAPI
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
-from 
+from moderation_chat.moderation import moderation_chat
 
 KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 CHAT_TOPIC = os.getenv("CHAT_TOPIC", "chat")
+MODERATION_TOPIC = os.getenv("MODERATION_TOPIC", "moderation")
 GROUP_ID = os.getenv("KAFKA_GROUP_ID", "moderation-service")
 
 async def connect_kafka(app: FastAPI):
@@ -21,7 +22,7 @@ async def connect_kafka(app: FastAPI):
     app.state.kafka_consumer = consumer
     app.state.kafka_producer = producer
 
-    asyncio.create_task(process_kafka(app))
+    asyncio.create_task(moderation_chat(MODERATION_TOPIC, app))
 
 async def disconnect_kafka(app: FastAPI):
     await app.state.kafka_consumer.stop()

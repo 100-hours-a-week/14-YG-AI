@@ -6,7 +6,7 @@ load_dotenv()
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from api import generate_post
-from moderation_chat.kafka_config import connect_kafka, disconnect_kafka
+from moderation_chat.config.kafka_config import connect_kafka, disconnect_kafka
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
