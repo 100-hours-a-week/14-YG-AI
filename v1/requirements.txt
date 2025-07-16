@@ -26,3 +26,5 @@ uvicorn[standard]
 pytest-asyncio
 asgi_lifespan
 langfuse==3.0.3
+numpy<2
+torchvision>=0.15.2,<0.16.0
