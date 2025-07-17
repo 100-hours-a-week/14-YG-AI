@@ -5,17 +5,12 @@ import psycopg2
 import re
 import json
 from typing import List, Optional, Dict, Tuple
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from langchain_core.tools import tool
 from langchain_google_vertexai import ChatVertexAI
 from langchain_core.messages import SystemMessage, HumanMessage
 from openai import AsyncOpenAI
-from contextlib import contextmanager
-from sshtunnel import SSHTunnelForwarder
-import pymysql
-
 from config.settings import settings
-
 
 import logging
 
@@ -31,45 +26,8 @@ async_openai_client = AsyncOpenAI(
 )
 
 
-@contextmanager
-def get_mysql_connection():
-    """SSH 터널을 통한 MySQL 연결"""
-    tunnel = None
-    connection = None
-
-    try:
-        # SSH 터널 생성
-        tunnel = SSHTunnelForwarder(
-            (settings.mysql.ssh_host, settings.mysql.ssh_port),
-            ssh_username=settings.mysql.ssh_user,
-            ssh_pkey=settings.mysql.ssh_pkey_path,
-            remote_bind_address=(settings.mysql.db_host, settings.mysql.db_port),
-            local_bind_address=("127.0.0.1", 0),
-        )
-        tunnel.start()
-
-        # MySQL 연결
-        connection = pymysql.connect(
-            host="127.0.0.1",
-            port=tunnel.local_bind_port,
-            user=settings.mysql.db_user,
-            password=settings.mysql.db_password,
-            database=settings.mysql.db_name,
-            charset=settings.mysql.db_charset,
-            # cursorclass=pymysql.cursors.DictCursor,
-        )
-
-        yield connection
-
-    finally:
-        if connection:
-            connection.close()
-        if tunnel:
-            tunnel.stop()
-
-
 # Google Vertex AI 클라이언트 (LLM용)
-async def get_vertex_ai_client(temp: float = 0.0):
+def get_vertex_ai_client(temp: float = 0.0):
     """Vertex AI 클라이언트 생성"""
     return ChatVertexAI(
         model_name=settings.google_cloud.model_name,
@@ -92,9 +50,9 @@ async def embed_text_async(text: str) -> List[float]:
             raise ValueError("임베딩 결과가 비어 있음")
 
         # 2. 차원 검증 (DatabaseSettings의 vector_dimension 사용)
-        if len(embedding) != settings.database.vector_dimension:
+        if len(embedding) != settings.postgres.vector_dimension:
             raise ValueError(
-                f"임베딩 차원 불일치: 예상 {settings.database.vector_dimension}, "
+                f"임베딩 차원 불일치: 예상 {settings.postgres.vector_dimension}, "
                 f"실제 {len(embedding)}"
             )
 
@@ -114,42 +72,6 @@ async def embed_text_async(text: str) -> List[float]:
 
     except Exception as e:
         raise RuntimeError(f"임베딩 실패: {e}")
-
-
-async def safe_parse_llm_json(llm_response: str) -> dict | None:
-    """
-    LLM의 응답 문자열에서 JSON 객체를 안전하게 추출하고 파싱합니다.
-
-    Args:
-        llm_response: LLM이 반환한 전체 문자열.
-
-    Returns:
-        파싱된 딕셔너리 객체. 실패 시 None을 반환합니다.
-    """
-    try:
-        # LLM 응답에서 JSON이 시작하는 첫 '{'와 끝나는 마지막 '}'를 찾습니다.
-        json_start_index = llm_response.find("{")
-        json_end_index = llm_response.rfind("}") + 1
-
-        if json_start_index != -1 and json_end_index > json_start_index:
-            # '{'와 '}' 사이의 부분만 잘라냅니다.
-            json_string = llm_response[json_start_index:json_end_index]
-
-            # 잘라낸 문자열을 JSON으로 파싱합니다.
-            parsed_json = json.loads(json_string)
-            logging.info("LLM 응답 JSON 파싱 성공")
-            return parsed_json
-        else:
-            logging.warning("LLM 응답에서 유효한 JSON 블록을 찾지 못했습니다.")
-            return None
-    except json.JSONDecodeError as e:
-        logging.error(f"JSON 파싱 오류: {e}. 원본 응답: {llm_response}")
-        print(f"JSON 파싱 오류: {e}. 원본 응답: {llm_response}")
-        return None
-    except Exception as e:
-        logging.error(f"알 수 없는 파싱 오류 발생: {e}")
-        print(f"알 수 없는 파싱 오류 발생: {e}")
-        return None
 
 
 async def boolean_filter_results_with_llm(
@@ -367,21 +289,21 @@ def try_simple_boolean_parsing(
     return rows, {"filter_applied": False, "reasoning": "Boolean 파싱 완전 실패"}
 
 
-async def parse_user_query(query: str) -> Dict:
+def parse_user_query(query: str) -> Dict:
     """사용자 쿼리 분석하여 검색 조건 추출"""
 
     conditions = {
-        "search_type": None,  # llm
-        "product_terms": [],  # llm
-        "max_price": None,  # 정규식
-        "min_price": None,  # 정규식
-        "post_status": "OPEN",  # 기본값
-        "sort_by": None,  # llm
-        "sort_order": "ASC",  # llm
-        "top_k": 5,  # 정규식
-        "price_type": "unit",  # 기본값
-        "due_date_filter": None,  # llm
-        "pickup_date_filter": None,  # llm
+        "search_type": None,
+        "product_terms": [],
+        "max_price": None,
+        "min_price": None,
+        "post_status": "OPEN",
+        "sort_by": None,
+        "sort_order": "ASC",
+        "top_k": 5,
+        "price_type": "unit",
+        "due_date_filter": None,
+        "pickup_date_filter": None,
     }
 
     print(f"🔍 쿼리 분석: '{query}'")
@@ -391,7 +313,7 @@ async def parse_user_query(query: str) -> Dict:
     today = now.date()
     tomorrow = today + timedelta(days=1)
 
-    # 1. 개수 추출(top_k: 정규식)
+    # 1. 개수 추출
     count_patterns = [
         (r"(\d+)\s*개", lambda x: int(x)),
         (r"(\d+)\s*건", lambda x: int(x)),
@@ -415,7 +337,7 @@ async def parse_user_query(query: str) -> Dict:
             except:
                 pass
 
-    # 2. 가격 조건 추출(min,max_price: 정규식)
+    # 2. 가격 조건 추출
     price_patterns = [
         (r"(\d+)\s*천원?\s*보다\s*(비싼|큰)", "min_1k_exclusive"),
         (r"(\d+)\s*천원?\s*보다\s*(싼|작은)", "max_1k_exclusive"),
@@ -479,200 +401,88 @@ async def parse_user_query(query: str) -> Dict:
             )
             break
 
-    # 3. 나머지 요소 llm 파싱(search_type, product_terms, sort_by, sort_order, due_date_filter, pickup_date_filter)
-    try:
-        # Vertex AI 클라이언트 생성
-        conditions = await format_query_parse_structured(query, conditions)
-        if conditions["search_type"] == "keyword":
-            print(f"   🎯 검색 타입: 키워드 ({conditions['product_terms']})")
-        elif conditions["search_type"] == "vector":
-            print(f"   🎯 검색 타입: 벡터 ({conditions['product_terms']})")
-        else:
-            conditions["search_type"] = "condition_only"
-            print(f"   🎯 검색 타입: 조건만")
+    # 3. 가격 타입 (개당 vs 총액)
+    if any(word in query for word in ["총", "전체", "모두", "다 합쳐서"]):
+        conditions["price_type"] = "total"
+        print(f"   💵 가격 타입: 총액")
+    else:
+        conditions["price_type"] = "unit"
+        print(f"   💵 가격 타입: 개당")
 
-    except Exception as e:
-        print(f"⚠️ LLM 필터링 실패, 원본 결과 사용: {e}")
+    # 4. 검색 타입 결정
+    specific_products = [
+        "콜라",
+        "펩시",
+        "코카콜라",
+        "사이다",
+        "스프라이트",
+        "환타",
+        "이클립스",
+        "곤약젤리",
+        "초콜릿",
+        "과자",
+        "라면",
+        "컵라면",
+        "치킨",
+        "피자",
+        "햄버거",
+        "커피",
+        "아이스크림",
+        "케이크",
+    ]
+
+    general_categories = [
+        "간식",
+        "음료",
+        "먹을거",
+        "음식",
+        "디저트",
+        "과자류",
+        "생활용품",
+        "전자제품",
+        "책",
+        "문구류",
+        "의류",
+        "화장품",
+    ]
+
+    found_specific = [p for p in specific_products if p in query]
+    found_general = [c for c in general_categories if c in query]
+
+    if found_specific:
+        conditions["search_type"] = "keyword"
+        conditions["product_terms"] = found_specific
+        print(f"   🎯 검색 타입: 키워드 ({found_specific})")
+    elif found_general:
+        conditions["search_type"] = "vector"
+        conditions["product_terms"] = found_general
+        print(f"   🎯 검색 타입: 벡터 ({found_general})")
+    else:
+        conditions["search_type"] = "condition_only"
+        print(f"   🎯 검색 타입: 조건만")
 
     print(f"✅ 분석 완료")
     return conditions
 
 
-async def format_query_parse_structured(query: str, conditions: Dict) -> Dict:
-    """쿼리 파싱 결과를 구조화된 JSON 문자열로 변환"""
-    system_prompt_template = """당신은 사용자 쿼리를 분석하여 구조화된 검색 조건으로 변환하는 NLU(자연어 이해) 전문가입니다.
-주어진 쿼리에서 다음 6가지 정보를 추출하여 JSON 형식으로 반환해주세요.
-
-# 1. 대상 명칭 (product_terms) & 검색 타입 (search_type)
-- `product_terms`: 사용자가 원하는 대상의 이름. (예: "코카콜라", "갈증 해소 음료")
-- `search_type`:
-    - `keyword`: "새우깡", "아이폰 15"처럼 구체적인 상품/브랜드명.
-    - `vector`: "시원한 음료", "과자"처럼 의미/개념/카테고리 표현.
-- 명칭이 없으면 둘 다 `null`로 설정합니다.
-
-# 2. 정렬 조건 (sort_by, sort_order)
-- `sort_by`: 정렬 기준이 될 데이터베이스 칼럼명. 다음 중 하나여야 합니다.
-    - `unit_price`: "가격", "싼", "비싼", "저렴한" 등 가격 관련 언급 시.
-    - `due_date`: "마감", "마감 임박" 등 마감일 관련 언급 시.
-    - `created_at`: "최신", "새로운", "최근" 등 생성일 관련 언급 시.
-    - `participant_count`: "인기", "사람 많은" 등 참여자 수 관련 언급 시.
-- `sort_order`: 정렬 방향.
-    - `ASC` (오름차순): "낮은 순", "싼 순", "빠른 순" 등.
-    - `DESC` (내림차순): "높은 순", "비싼 순", "느린 순", "최신 순", "인기 많은 순" 등.
-- 사용자가 정렬을 언급하지 않으면 `sort_by`는 `null`, `sort_order`는 `DESC`로 설정합니다.
-
-# 3. 날짜 필터 (due_date_filter, pickup_date_filter)
-- `due_date_filter`: '공구 마감일' 기준 필터링.
-- `pickup_date_filter`: '수령 가능일' 기준 필터링.
-- 사용자가 특정 기간 내의 날짜를 언급하면, **현재 시간({current_time})을 기준으로 계산된 목표 시점의 datetime**을 ISO 8601 형식("YYYY-MM-DDTHH:MM:SS")으로 반환합니다.
-- 언급이 없으면 `null`로 설정합니다.
-
----
-### 예시 1: 정렬 및 명칭
-- 쿼리: "제일 인기 많은 과자 보여줘"
-- 현재 시간: 2025-07-17T11:00:00
-- 결과:
-{{
-  "product_terms": "과자",
-  "search_type": "vector",
-  "sort_by": "participant_count",
-  "sort_order": "DESC",
-  "due_date_filter": null,
-  "pickup_date_filter": null
-}}
-
-### 예시 2: 날짜 필터
-- 쿼리: "일주일 안에 마감되는 공구 뭐 있어?"
-- 현재 시간: 2025-07-17T11:00:00
-- 결과:
-{{
-  "product_terms": null,
-  "search_type": null,
-  "sort_by": null,
-  "sort_order": "DESC",
-  "due_date_filter": "2025-07-24T11:00:00",
-  "pickup_date_filter": null
-}}
-
-### 예시 3: 복합 조건
-- 쿼리: "내일 수령 가능한 것 중에 제일 싼 거"
-- 현재 시간: 2025-07-17T11:00:00
-- 결과:
-{{
-  "product_terms": null,
-  "search_type": null,
-  "sort_by": "unit_price",
-  "sort_order": "ASC",
-  "due_date_filter": null,
-  "pickup_date_filter": "2025-07-18T23:59:59"
-}}
-// 참고: '내일'은 그날 자정까지를 의미하므로 23:59:59로 설정
-
-### 예시 4: 명칭만 존재
-- 쿼리: "펩시 콜라"
-- 현재 시간: 2025-07-17T11:00:00
-- 결과:
-{{
-  "product_terms": "펩시 콜라",
-  "search_type": "keyword",
-  "sort_by": null,
-  "sort_order": "DESC",
-  "due_date_filter": null,
-  "pickup_date_filter": null
-}}
----
-
-# 이제 아래 쿼리를 분석하고 현재 시간을 기준으로 JSON을 생성해주세요.
-- 현재 시간: {current_time}
-"""
-
-    try:
-        user_prompt = f"- 사용자 쿼리: {query}"
-        # Vertex AI 클라이언트 생성
-        vertex_ai_client = await get_vertex_ai_client(temp=0.1)
-        print("오류없음1")
-        # 2. 플레이스홀더에 채울 값 준비
-        # 현재 시간을 UTC 기준으로 ISO 8601 형식으로 변환
-        current_time_iso = datetime.now(timezone.utc).isoformat()
-        print("오류없음2")
-        # 3. .format() 메소드를 사용하여 프롬프트 완성
-        system_prompt = system_prompt_template.format(current_time=current_time_iso)
-        # print(system_prompt)
-        # ❗️ 수정 3: SystemMessage와 HumanMessage를 함께 전달합니다.
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt),
-        ]
-        print(f"🤖 쿼리 파싱 LLM 호출 시작...")
-        response = await vertex_ai_client.ainvoke(messages)
-        response_text = response.content
-
-        print(f"🤖 LLM 파서 응답: {response_text}")
-        response_json = await safe_parse_llm_json(response_text)
-        # if response_json.get("product_terms"):  # null/None/빈문자열 모두 False
-        conditions["product_terms"] = [response_json["product_terms"]]
-        # if response_json.get("search_type"):
-        conditions["search_type"] = response_json["search_type"]
-        # if response_json.get("sort_by"):
-        conditions["sort_by"] = response_json["sort_by"]
-        # if response_json.get("sort_order"):
-        conditions["sort_order"] = response_json["sort_order"]
-        # if response_json.get("due_date_filter"):
-        conditions["due_date_filter"] = response_json["due_date_filter"]
-        # if response_json.get("pickup_date_filter"):
-        conditions["pickup_date_filter"] = response_json["pickup_date_filter"]
-        return conditions
-
-    # ❗️ 수정 4: 파싱 결과가 없을 때를 대비한 안전한 업데이트 로직
-    except Exception as e:
-        print(f"⚠️ 쿼리 파싱 LLM 호출 실패: {e}")
-        print("⚠️ LLM 파싱 결과가 없어 기존 조건을 유지합니다.")
-        return conditions
-
-
-def build_vector_sql_query(
+def build_sql_query(
     conditions: Dict, embedding: Optional[List[float]] = None
-) -> str:
-    """벡터 SQL 쿼리 생성(Postgres)"""
-    # 유사도 임계값 (낮을수록 더 유사함)
-    SIMILARITY_THRESHOLD = 0.5  # 추천 시작값
-
-    # 잠만 게시글 상태도 생각해야하네. OPEN만 가쟈와야하는데 점수컷이 맞다.
-    if conditions["search_type"] == "vector" and embedding:
-        sql = f"""
-        SELECT id
-        FROM (
-            SELECT id, embedding <-> ARRAY{embedding}::vector AS similarity
-            FROM group_buy_vectors
-        ) AS ranked
-        WHERE similarity < {SIMILARITY_THRESHOLD}
-        ORDER BY similarity ASC
-        LIMIT {conditions['top_k']}
-        """
-    else:
-        sql = f"""
-        SELECT id
-        FROM group_buy_vectors
-        ORDER BY id DESC
-        LIMIT {conditions['top_k']}
-        """
-    # 결과값은 [(1,), (2,), ...] 형태로 반환됨
-    return sql
-
-
-def build_sql_query(conditions: Dict, result_id: Optional[List[int]] = None) -> str:
-    """최종 SQL 쿼리 생성(MySQL)"""
+) -> Tuple[str, str]:
+    """SQL 쿼리 생성"""
 
     # SELECT 절 - unit_amount 추가
-    select_clause = "id, title, name, price, unit_price, total_amount, left_amount, unit_amount, due_date, pickup_date, post_status, participant_count, created_at"
+    base_columns = "id, title, name, price, unit_price, total_amount, left_amount, unit_amount, due_date, pickup_date, post_status, view_count, wish_count, participant_count, created_at"
+
+    if conditions["search_type"] == "vector" and embedding:
+        select_clause = (
+            f"embedding <-> ARRAY{embedding}::vector AS similarity, {base_columns}"
+        )
+    else:
+        select_clause = base_columns
 
     # WHERE 절
     where_conditions = ["deleted_at IS NULL"]
     where_conditions.append(f"post_status = '{conditions['post_status']}'")
-
-    if conditions["search_type"] == "vector" and result_id:
-        # 벡터 검색 결과가 있을 때
-        where_conditions += f"id IN ({', '.join(map(str, result_id))})"
 
     # 가격 조건
     price_col = "price" if conditions["price_type"] == "total" else "unit_price"
@@ -683,12 +493,9 @@ def build_sql_query(conditions: Dict, result_id: Optional[List[int]] = None) -> 
 
     # 날짜 조건
     if conditions.get("due_date_filter"):
-        due_date = conditions["due_date_filter"]
-        where_conditions.append(f"due_date <= '{due_date}'")
-
+        where_conditions.append(conditions["due_date_filter"])
     if conditions.get("pickup_date_filter"):
-        pickup_date = conditions["pickup_date_filter"]
-        where_conditions.append(f"pickup_date <= '{pickup_date}'")
+        where_conditions.append(conditions["pickup_date_filter"])
 
     # 키워드 검색 조건
     if conditions["search_type"] == "keyword" and conditions["product_terms"]:
@@ -710,6 +517,8 @@ def build_sql_query(conditions: Dict, result_id: Optional[List[int]] = None) -> 
         else:
             sort_column = conditions["sort_by"]
         order_clause = f"ORDER BY {sort_column} {conditions['sort_order']}"
+    elif conditions["search_type"] == "vector":
+        order_clause = "ORDER BY similarity ASC"
     else:
         order_clause = "ORDER BY created_at DESC"
 
@@ -721,7 +530,8 @@ def build_sql_query(conditions: Dict, result_id: Optional[List[int]] = None) -> 
     {order_clause}
     LIMIT {conditions['top_k']}
     """
-    return sql
+
+    return sql, select_clause
 
 
 # 기존 함수를 Boolean 방식으로 교체
@@ -747,7 +557,7 @@ async def format_search_results_structured(
 
     try:
         # Vertex AI 클라이언트 생성
-        vertex_ai_client = await get_vertex_ai_client(temp=0.1)
+        vertex_ai_client = get_vertex_ai_client(temp=0.1)
 
         # Boolean 방식 LLM 필터링 적용
         filtered_rows, analysis_info = await boolean_filter_results_with_llm(
@@ -908,48 +718,36 @@ async def search_group_buy(query: str) -> str:
 
     try:
         # 1. 쿼리 분석
-        conditions = await parse_user_query(query)
+        conditions = parse_user_query(query)
 
+        # 2. DB 연결 (설정 클래스 사용)
+        conn = psycopg2.connect(**settings.postgres.connection_params)
+        cur = conn.cursor()
+
+        embedding = None
+
+        # 3. 벡터 검색 시 임베딩 생성
         if conditions["search_type"] == "vector":
-            print("🔍 벡터 검색 수행")
-            pg_conn = psycopg2.connect(**settings.postgres.connection_params)
-            pg_cur = pg_conn.cursor()
-
-            embedding = None
-
+            print(f"\n🧠 임베딩 생성 중...")
             search_text = " ".join(conditions["product_terms"])
             embedding = await embed_text_async(search_text)
             print(f"✅ 임베딩 완료 (차원: {len(embedding)})")
-            vector_sql = build_vector_sql_query(conditions, embedding)
 
-            pg_cur.execute(vector_sql)
+        # 4. SQL 생성 및 실행
+        sql, select_clause = build_sql_query(conditions, embedding)
 
-            results_id = pg_cur.fetchall()
-            results_id = [row[0] for row in results_id]  # ID만 추출
+        cur.execute(sql)
+        cols = [c[0] for c in cur.description]
+        rows = cur.fetchall()
 
-            pg_cur.close()
-            pg_conn.close()
-            print(f"\n✅ 백터DB 검색 완료: {len(results_id)}개")
+        print(f"\n✅ DB 검색 완료: {len(rows)}개")
 
-            sql = build_sql_query(conditions, results_id)
-        else:
-            sql = build_sql_query(conditions)
+        # 5. LLM 필터링이 포함된 구조화된 결과 반환
+        result = await format_search_results_structured(rows, cols, conditions, query)
 
-        print(conditions)
-        with get_mysql_connection() as mysql_conn:
-            mysql_cur = mysql_conn.cursor()
-            print(f"\n🔍 MySQL 쿼리 실행")
-            mysql_cur.execute(sql)
-            cols = [c[0] for c in mysql_cur.description]
-            rows = mysql_cur.fetchall()
-
-            print(f"\n✅ DB 검색 완료: {len(rows)}개")
-
-            # 5. LLM 필터링이 포함된 구조화된 결과 반환
-            result = await format_search_results_structured(
-                rows, cols, conditions, query
-            )
-            print(result)
+        cur.close()
+        conn.close()
+        print(result)
         return result
 
     except Exception as e:
@@ -964,40 +762,3 @@ async def search_group_buy(query: str) -> str:
         }
         json_result = json.dumps(error_result, ensure_ascii=False, indent=2)
         return f"STRUCTURED_RESULT_START\n{json_result}\nSTRUCTURED_RESULT_END"
-
-
-if __name__ == "__main__":
-
-    # mysql 연결 테이스
-    import sys
-
-    if len(sys.argv) < 2:
-        print("사용법: python search_post_tool2.py <function_name> [arguments]")
-        print("예시: python search_post_tool2.py get_user_id 13")
-        sys.exit(1)
-
-    function_name = sys.argv[1]
-
-    if function_name == "get_user_id":
-        if len(sys.argv) < 3:
-            print("사용법: python search_post_tool2.py get_user_id <user_id>")
-            sys.exit(1)
-
-        user_id = sys.argv[2]
-        result = get_user_data(user_id)
-        print(f"최종 결과: {result}")
-
-    elif function_name == "test_connection":
-        print("MySQL 연결 테스트...")
-        try:
-            with get_mysql_connection() as conn:
-                cur = conn.cursor()
-                cur.execute("SELECT 1")
-                result = cur.fetchone()
-                print(f"연결 성공: {result}")
-        except Exception as e:
-            print(f"연결 실패: {e}")
-
-    else:
-        print(f"알 수 없는 함수: {function_name}")
-        print("사용 가능한 함수: get_user_id, test_connection")

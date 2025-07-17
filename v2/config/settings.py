@@ -9,15 +9,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-class DatabaseSettings(BaseSettings):
-    """데이터베이스 설정"""
+class PostgresSettings(BaseSettings):
+    """Postgres 설정"""
 
     # PostgreSQL 설정
-    host: str = "localhost"
-    port: int = 5432
-    user: str = "jeongtaek"
-    password: str = "postgres"
-    dbname: str = "test"
+    host: str = os.getenv("PG_HOST")
+    port: int = int(os.getenv("PG_PORT"))
+    user: str = os.getenv("PG_USER")
+    password: str = os.getenv("PG_PASSWORD")
+    dbname: str = os.getenv("PG_DBNAME")
 
     # 벡터 DB 관련
     vector_dimension: int = 4096
@@ -34,7 +34,53 @@ class DatabaseSettings(BaseSettings):
         }
 
     class Config:
-        env_prefix = "DB_"
+        env_prefix = "PG_"
+        extra = "ignore"
+
+
+class MySQLSettings(BaseSettings):
+    """MySQL 및 SSH 터널링 설정"""
+
+    # MySQL 설정
+    db_host: str = os.getenv("MYSQL_DB_HOST")
+    db_port: int = int(os.getenv("MYSQL_DB_PORT"))
+    db_user: str = os.getenv("MYSQL_DB_USER")
+    db_password: str = os.getenv("MYSQL_DB_PASSWORD")
+    db_name: str = os.getenv("MYSQL_DB_NAME")
+    db_charset: str = os.getenv("MYSQL_DB_CHARSET")
+
+    # SSH 설정
+    ssh_host: str = os.getenv("MYSQL_SSH_HOST")
+    ssh_port: int = int(os.getenv("MYSQL_SSH_PORT"))
+    ssh_user: str = os.getenv("MYSQL_SSH_USER")
+    ssh_pkey_path: str = os.getenv("MYSQL_SSH_PKEY_PATH")
+
+    @property
+    def connection_params(self) -> dict:
+        """MySQL 연결 파라미터 반환"""
+        return {
+            "host": self.db_host,
+            "port": self.db_port,
+            "user": self.db_user,
+            "password": self.db_password,
+            "database": self.db_name,
+            "charset": self.db_charset,
+        }
+
+    @property
+    def ssh_params(self) -> dict:
+        """SSH 터널링 파라미터 반환"""
+        return {
+            "ssh_host": self.ssh_host,
+            "ssh_port": self.ssh_port,
+            "ssh_user": self.ssh_user,
+            "ssh_pkey_path": self.ssh_pkey_path,
+            "remote_host": self.db_host,
+            "remote_port": self.db_port,
+        }
+
+    class Config:
+        env_prefix = "MYSQL_"
         extra = "ignore"
 
 
@@ -123,7 +169,7 @@ class ServerSettings(BaseSettings):
 
     # FastAPI 설정
     host: str = "0.0.0.0"
-    port: int = 8200
+    port: int = 8101
     reload: bool = True
     debug: bool = True
 
@@ -197,7 +243,8 @@ class Settings(BaseSettings):
     environment: str = "development"
 
     # 하위 설정들
-    database: DatabaseSettings = DatabaseSettings()
+    postgres: PostgresSettings = PostgresSettings()
+    mysql: MySQLSettings = MySQLSettings()
     google_cloud: GoogleCloudSettings = GoogleCloudSettings()
     upstage: UpstageSettings = UpstageSettings()
     langfuse: LangfuseSettings = LangfuseSettings()
@@ -229,9 +276,19 @@ def get_settings() -> Settings:
     return settings
 
 
-def get_db_config() -> dict:
-    """데이터베이스 연결 설정 반환"""
-    return settings.database.connection_params
+def get_pg_config() -> dict:
+    """PostgreSQL 연결 설정 반환"""
+    return settings.postgres.connection_params
+
+
+def get_mysql_config() -> dict:
+    """MySQL 연결 설정 반환"""
+    return settings.mysql.connection_params
+
+
+def get_mysql_ssh_config() -> dict:
+    """MySQL SSH 터널링 설정 반환"""
+    return settings.mysql.ssh_params
 
 
 def get_google_cloud_config() -> dict:
@@ -259,7 +316,9 @@ if __name__ == "__main__":
     print(f"  앱 이름: {settings.app_name}")
     print(f"  버전: {settings.app_version}")
     print(f"  환경: {settings.environment}")
-    print(f"  DB 호스트: {settings.database.host}")
+    print(f"  PG 호스트: {settings.postgres.host}")
+    print(f"  MySQL 호스트: {settings.mysql.db_host}")
+    print(f"  MySQL SSH 호스트: {settings.mysql.ssh_host}")
     print(f"  서버 포트: {settings.server.port}")
     print(f"  구글 프로젝트: {settings.google_cloud.project}")
     print(f"  개발 환경: {settings.is_development}")

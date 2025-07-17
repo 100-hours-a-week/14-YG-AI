@@ -49,6 +49,12 @@ def get_supervisor_app():
     return supervisor_app
 
 
+@app.get("/")
+async def root():
+    """루트 경로에서 index.html 반환"""
+    return FileResponse("static/index.html")
+
+
 @app.on_event("startup")
 async def startup_event():
     """애플리케이션 시작 시 초기화"""
@@ -88,7 +94,6 @@ async def shutdown_event():
     workflow_manager.reset()
 
     logger.info("✅ 정리 완료")
-
 
 
 @app.get("/health")
