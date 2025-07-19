@@ -92,9 +92,9 @@ async def embed_text_async(text: str) -> List[float]:
             raise ValueError("임베딩 결과가 비어 있음")
 
         # 2. 차원 검증 (DatabaseSettings의 vector_dimension 사용)
-        if len(embedding) != settings.database.vector_dimension:
+        if len(embedding) != settings.postgres.vector_dimension:
             raise ValueError(
-                f"임베딩 차원 불일치: 예상 {settings.database.vector_dimension}, "
+                f"임베딩 차원 불일치: 예상 {settings.postgres.vector_dimension}, "
                 f"실제 {len(embedding)}"
             )
 
@@ -609,18 +609,18 @@ async def format_query_parse_structured(query: str, conditions: Dict) -> Dict:
 
         print(f"🤖 LLM 파서 응답: {response_text}")
         response_json = await safe_parse_llm_json(response_text)
-        # if response_json.get("product_terms"):  # null/None/빈문자열 모두 False
-        conditions["product_terms"] = [response_json["product_terms"]]
-        # if response_json.get("search_type"):
-        conditions["search_type"] = response_json["search_type"]
-        # if response_json.get("sort_by"):
-        conditions["sort_by"] = response_json["sort_by"]
-        # if response_json.get("sort_order"):
-        conditions["sort_order"] = response_json["sort_order"]
-        # if response_json.get("due_date_filter"):
-        conditions["due_date_filter"] = response_json["due_date_filter"]
-        # if response_json.get("pickup_date_filter"):
-        conditions["pickup_date_filter"] = response_json["pickup_date_filter"]
+        if response_json.get("product_terms"):  # null/None/빈문자열 모두 False
+            conditions["product_terms"] = [response_json["product_terms"].strip()]
+        if response_json.get("search_type"):
+            conditions["search_type"] = response_json["search_type"]
+        if response_json.get("sort_by"):
+            conditions["sort_by"] = response_json["sort_by"]
+        if response_json.get("sort_order"):
+            conditions["sort_order"] = response_json["sort_order"]
+        if response_json.get("due_date_filter"):
+            conditions["due_date_filter"] = response_json["due_date_filter"]
+        if response_json.get("pickup_date_filter"):
+            conditions["pickup_date_filter"] = response_json["pickup_date_filter"]
         return conditions
 
     # ❗️ 수정 4: 파싱 결과가 없을 때를 대비한 안전한 업데이트 로직
@@ -696,7 +696,7 @@ def build_sql_query(conditions: Dict, result_id: Optional[List[int]] = None) -> 
         for term in conditions["product_terms"]:
             escaped_term = term.replace("'", "''")
             keyword_conditions.append(
-                f"(title ILIKE '%{escaped_term}%' OR name ILIKE '%{escaped_term}%')"
+                f"(title LIKE '%{escaped_term}%' OR name LIKE '%{escaped_term}%')"
             )
         if keyword_conditions:
             where_conditions.append(f"({' OR '.join(keyword_conditions)})")
