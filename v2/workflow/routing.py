@@ -4,11 +4,12 @@ import re
 import logging
 from typing import Dict, Any, List
 
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import BaseMessage, HumanMessage
 
 from config import settings
 from .agents import AgentFactory
-from .prompts import format_supervisor_prompt
+from .prompts import format_supervisor_prompt, get_supervisor_prompt
+
 
 logger = logging.getLogger(__name__)
 
@@ -54,34 +55,27 @@ class MessageRouter:
             "PARTICIPATE": "participate",
             "CREATE": "create",
         }
+        # ❗️ 프롬프트 템플릿을 인스턴스 변수로 저장
+        self.supervisor_prompt_template = get_supervisor_prompt()
 
-    async def route_message(
-        self, messages: List[BaseMessage], conversation_history: str = ""
-    ) -> RouterDecision:
+    async def route_message(self, messages: List[BaseMessage]) -> RouterDecision:
         """
-        메시지를 분석하여 적절한 에이전트로 라우팅
-
-        Args:
-            messages: 메시지 리스트
-            conversation_history: 대화 기록 (선택사항)
-
-        Returns:
-            RouterDecision: 라우팅 결정 결과
+        메시지 리스트(전체 대화 맥락)를 분석하여 적절한 에이전트로 라우팅
         """
         if not messages:
             return self._create_fallback_decision("메시지가 없습니다.")
 
-        last_message = messages[-1].content
-
         try:
             # LLM을 통한 지능형 라우팅
-            decision = await self._llm_based_routing(last_message, conversation_history)
+            decision = await self._llm_based_routing(
+                messages
+            )  # 이제 전체 messages를 전달
 
             # 결정 후처리
             decision = self._post_process_decision(decision)
 
             logger.info(
-                f"🧠 라우팅 결정 [메시지: {last_message[:30]}...] "
+                f"🧠 라우팅 결정 [마지막 메시지: {messages[-1].content[:30]}...] "
                 f"[선택: {decision.selected_agent}] [신뢰도: {decision.confidence:.2f}]"
             )
 
@@ -91,24 +85,36 @@ class MessageRouter:
             logger.error(f"❌ 라우팅 오류: {e}", exc_info=True)
             return self._create_fallback_decision(f"라우팅 처리 중 오류: {str(e)}")
 
-    async def _llm_based_routing(
-        self, last_message: str, conversation_history: str = ""
-    ) -> RouterDecision:
+    async def _llm_based_routing(self, messages: List[BaseMessage]) -> RouterDecision:
         """
-        LLM을 사용한 지능형 라우팅
-
-        Args:
-            last_message: 마지막 메시지
-            conversation_history: 대화 기록
-
-        Returns:
-            RouterDecision: 라우팅 결정
+        LLM을 사용한 지능형 라우팅 (전체 대화 맥락 사용)
         """
-        # 슈퍼바이저 프롬프트 생성
-        supervisor_prompt = format_supervisor_prompt(last_message)
+        # 1. 프롬프트에 필요한 정보 추출
+        last_message = messages[-1].content
 
+        chat_history = ""
+        current_agent = "None"  # 기본값
+
+        # 마지막 메시지를 제외하고 대화 기록 생성
+        for msg in reversed(messages[:-1]):
+            role = "User" if isinstance(msg, HumanMessage) else "Assistant"
+            chat_history += f"{role}: {msg.content}\n"
+
+            # 마지막 AI 응답에서 에이전트 이름 찾기 (가장 최근 것만)
+            if role == "Assistant" and current_agent == "None":
+                current_agent = msg.additional_kwargs.get("agent", "None")
+
+        # 2. 슈퍼바이저 프롬프트 생성
+        final_prompt = self.supervisor_prompt_template.format(
+            last_message=last_message,
+            chat_history=chat_history.strip(),
+            current_agent=current_agent,
+        )
+        print("-----------------------")
+        print("대화 기록:\n", chat_history.strip())
+        print("-----------------------")
         # LLM 호출
-        response = await self.supervisor_llm.ainvoke(supervisor_prompt)
+        response = await self.supervisor_llm.ainvoke(final_prompt)
 
         # JSON 응답 파싱
         decision_data = self._parse_llm_response(response.content)

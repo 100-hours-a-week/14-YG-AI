@@ -882,7 +882,7 @@ def get_search_type_display(search_type: str) -> str:
 
 
 @tool
-async def search_group_buy(query: str) -> str:
+async def search_post(query: str) -> str:
     """
     공구 게시글을 검색합니다.
 

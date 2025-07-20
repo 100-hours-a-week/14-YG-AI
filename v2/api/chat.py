@@ -136,14 +136,14 @@ async def process_message_stream(
                 )
                 return
 
-            # 첫 번째 사용자 메시지인 경우 시스템 메시지 추가
-            user_messages = [
-                msg
-                for msg in conversation_history
-                if hasattr(msg, "type") and msg.type == "human"
-            ]
+            # # 첫 번째 사용자 메시지인 경우 시스템 메시지 추가
+            # user_messages = [
+            #     msg
+            #     for msg in conversation_history
+            #     if hasattr(msg, "type") and msg.type == "human"
+            # ]
             if (
-                len(user_messages) == 0 and user_id and user_name
+                len(conversation_history) == 0 and user_id and user_name
             ):  # 첫 대화 + 유저 정보 있음
                 system_message = AIMessage(
                     content=f"💡 시스템: 현재 대화 중인 사용자는 {user_name}님 (ID: {user_id})입니다. 대화에 참고해 주세요",
@@ -151,9 +151,9 @@ async def process_message_stream(
                 )
                 # 대화 기록 맨 앞에 추가 (첫 번째 사용자 메시지 다음)
                 conversation_history.insert(-1, system_message)
-                add_message_to_session(session_id, system_message)
+                # add_message_to_session(session_id, system_message)
 
-            yield await format_sse_data(format_processing_message("분석 중..."))
+            # yield await format_sse_data(format_processing_message("분석 중..."))
 
             # 새 사용자 메시지 추가
             user_message = HumanMessage(content=message)
@@ -187,13 +187,13 @@ async def process_message_stream(
 
                 # 워크플로우 입력 구성
                 workflow_input = {
-                    "messages": conversation_history,
+                    "messages": conversation_history.copy(),  # .copy() 추가!
                     "next_agent": "supervisor",
                     "current_task": None,
                     "session_id": session_id,
                     "user_id": user_id,
                     "user_name": user_name,
-                    "access_token": access_token,  # 인증 토큰 추가
+                    "access_token": access_token,
                 }
 
                 logger.info(

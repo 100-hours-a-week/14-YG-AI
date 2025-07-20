@@ -8,8 +8,9 @@ from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 
 from config import settings
-from tools.search_post_tool import search_group_buy
+from tools.search_post_tool import search_post
 from tools.create_post_tool import create_post
+from tools.search_urls_tools import search_urls
 
 # =============================================================================
 # 공통 도구들
@@ -79,7 +80,7 @@ def create_search_agent():
     """공구 검색 및 추천 에이전트"""
 
     llm = create_base_llm(temperature=0.0)
-    tools = [search_group_buy]
+    tools = [search_post]
 
     from .prompts import get_search_agent_prompt
 
@@ -97,7 +98,7 @@ def create_create_agent():
     """공구 생성 에이전트"""
 
     llm = create_base_llm(temperature=0.0)
-    tools = [create_post]
+    tools = [create_post, search_urls]
 
     from .prompts import get_create_agent_prompt
 
@@ -212,7 +213,7 @@ def get_agent_info() -> dict:
         "search_agent": {
             "name": "검색 에이전트",
             "description": "공구 검색 및 추천",
-            "tools": ["search_group_buy"],
+            "tools": ["search_post"],
             "temperature": 0.0,
         },
         "participate_agent": {
@@ -224,7 +225,7 @@ def get_agent_info() -> dict:
         "create_agent": {
             "name": "공구생성 에이전트",
             "description": "공구 생성",
-            "tools": ["create_post"],
+            "tools": ["create_post","search_urls"],
             "temperature": 0.0,
         },
     }
