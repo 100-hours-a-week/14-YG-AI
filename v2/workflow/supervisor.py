@@ -78,11 +78,11 @@ async def run_search_agent_node(
     return await run_agent_node(state, config, "search")
 
 
-async def run_participate_agent_node(
+async def run_url_search_agent_node(
     state: WorkflowState, config: RunnableConfig
 ) -> WorkflowState:
-    """참여 에이전트 실행 노드"""
-    return await run_agent_node(state, config, "participate")
+    """URL검색 에이전트 실행 노드"""
+    return await run_agent_node(state, config, "url_search")
 
 
 async def run_create_agent_node(
@@ -169,7 +169,7 @@ async def run_agent_node(
 
 def should_continue(
     state: WorkflowState,
-) -> Literal["chat", "search", "participate", "create", "__end__"]:
+) -> Literal["chat", "search", "url_search", "create", "__end__"]:
     """
     다음 단계 결정 함수
 
@@ -184,7 +184,7 @@ def should_continue(
     logger.debug(f"🧭 다음 단계 결정: {next_agent}")
 
     # 유효한 에이전트인 경우
-    if next_agent in ["chat", "search", "participate", "create"]:
+    if next_agent in ["chat", "search", "url_search", "create"]:
         return next_agent
 
     # 기본값: 종료
@@ -218,7 +218,7 @@ class WorkflowManager:
             workflow.add_node("supervisor", supervisor_routing_node)
             workflow.add_node("chat", run_chat_agent_node)
             workflow.add_node("search", run_search_agent_node)
-            workflow.add_node("participate", run_participate_agent_node)
+            workflow.add_node("url_search", run_url_search_agent_node)
             workflow.add_node("create", run_create_agent_node)
 
             # 진입점 설정
@@ -231,7 +231,7 @@ class WorkflowManager:
                 {
                     "chat": "chat",
                     "search": "search",
-                    "participate": "participate",
+                    "url_search": "url_search",
                     "create": "create",
                     "__end__": END,
                 },
@@ -313,7 +313,7 @@ def validate_workflow_state(state: WorkflowState) -> dict:
     valid_agents = [
         "chat",
         "search",
-        "participate",
+        "url_search",
         "create",
         "__end__",
         "supervisor",
@@ -357,7 +357,7 @@ def get_workflow_stats() -> dict:
         for name in [
             "chat_agent",
             "search_agent",
-            "participate_agent",
+            "url_search_agent",
             "create_agent",
             "supervisor_llm",
         ]

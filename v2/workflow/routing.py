@@ -8,7 +8,7 @@ from langchain_core.messages import BaseMessage, HumanMessage
 
 from config import settings
 from .agents import AgentFactory
-from .prompts import format_supervisor_prompt, get_supervisor_prompt
+from .prompts import get_supervisor_prompt
 
 
 logger = logging.getLogger(__name__)
@@ -52,7 +52,7 @@ class MessageRouter:
         self.agent_mapping = {
             "CHAT": "chat",
             "SEARCH": "search",
-            "PARTICIPATE": "participate",
+            "URL_SEARCH": "url_search",
             "CREATE": "create",
         }
         # ❗️ 프롬프트 템플릿을 인스턴스 변수로 저장
@@ -270,7 +270,7 @@ def validate_routing_decision(decision: RouterDecision) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: 검증 결과
     """
-    valid_agents = ["chat", "search", "participate", "create"]
+    valid_agents = ["chat", "search", "url_search", "create"]
 
     errors = []
 
@@ -307,6 +307,7 @@ def analyze_message_intent(message: str) -> Dict[str, Any]:
         "search": ["찾아", "검색", "있어?", "추천", "뭐 있", "어떤", "리스트"],
         "create": ["만들", "생성", "올려", "개설", "등록", "새로운"],
         "chat": ["안녕", "안부", "심심", "기분", "날씨", "시간", "도움말"],
+        "url_search": ["링크", "주소", "웹사이트", "사이트", "페이지"],
         "question": ["?", "어떻게", "왜", "언제", "어디서", "무엇"],
     }
 

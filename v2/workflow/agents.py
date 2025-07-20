@@ -10,7 +10,7 @@ from langgraph.prebuilt import create_react_agent
 from config import settings
 from tools.search_post_tool import search_post
 from tools.create_post_tool import create_post
-from tools.search_urls_tools import search_urls
+from tools.search_urls_tool import search_urls
 
 # =============================================================================
 # 공통 도구들
@@ -98,7 +98,7 @@ def create_create_agent():
     """공구 생성 에이전트"""
 
     llm = create_base_llm(temperature=0.0)
-    tools = [create_post, search_urls]
+    tools = [create_post]
 
     from .prompts import get_create_agent_prompt
 
@@ -112,20 +112,20 @@ def create_create_agent():
     )
 
 
-def create_participate_agent():
+def create_url_search_agent():
     """공구 참여 및 생성 에이전트"""
 
     llm = create_base_llm(temperature=0.0)
-    tools = []
+    tools = [search_urls]
 
-    from .prompts import get_participate_agent_prompt
+    from .prompts import get_url_search_agent_prompt
 
-    prompt = get_participate_agent_prompt()
+    prompt = get_url_search_agent_prompt()
 
     return create_react_agent(
         model=llm,
         tools=tools,
-        name="participate_agent",
+        name="url_search_agent",
         prompt=prompt,
     )
 
@@ -160,11 +160,11 @@ class AgentFactory:
         return cls._agents_cache["search_agent"]
 
     @classmethod
-    def get_participate_agent(cls):
+    def get_url_search_agent(cls):
         """캐시된 참여 에이전트 반환"""
-        if "participate_agent" not in cls._agents_cache:
-            cls._agents_cache["participate_agent"] = create_participate_agent()
-        return cls._agents_cache["participate_agent"]
+        if "url_search_agent" not in cls._agents_cache:
+            cls._agents_cache["url_search_agent"] = create_url_search_agent()
+        return cls._agents_cache["url_search_agent"]
 
     @classmethod
     def get_create_agent(cls):
@@ -191,7 +191,7 @@ class AgentFactory:
         return {
             "chat_agent": cls.get_chat_agent(),
             "search_agent": cls.get_search_agent(),
-            "participate_agent": cls.get_participate_agent(),
+            "url_search_agent": cls.get_url_search_agent(),
             "create_agent": cls.get_create_agent(),
         }
 
@@ -216,7 +216,7 @@ def get_agent_info() -> dict:
             "tools": ["search_post"],
             "temperature": 0.0,
         },
-        "participate_agent": {
+        "url_search_agent": {
             "name": "공구참여 에이전트",
             "description": "공구 참여",
             "tools": ["get_current_time"],
@@ -225,7 +225,7 @@ def get_agent_info() -> dict:
         "create_agent": {
             "name": "공구생성 에이전트",
             "description": "공구 생성",
-            "tools": ["create_post","search_urls"],
+            "tools": ["create_post", "search_urls"],
             "temperature": 0.0,
         },
     }
@@ -253,13 +253,13 @@ def validate_agent_configuration() -> dict:
             agents_status["search_agent"] = {"status": "error", "error": str(e)}
 
         try:
-            participate_agent = create_participate_agent()
-            agents_status["participate_agent"] = {
+            url_search_agent = create_url_search_agent()
+            agents_status["url_search_agent"] = {
                 "status": "ok",
-                "name": participate_agent.name,
+                "name": url_search_agent.name,
             }
         except Exception as e:
-            agents_status["participate_agent"] = {"status": "error", "error": str(e)}
+            agents_status["url_search_agent"] = {"status": "error", "error": str(e)}
 
         try:
             create_agent = create_create_agent()
@@ -333,7 +333,7 @@ def get_agent_by_name(agent_name: str):
     agent_map = {
         "chat": AgentFactory.get_chat_agent,
         "search": AgentFactory.get_search_agent,
-        "participate": AgentFactory.get_participate_agent,
+        "url_search": AgentFactory.get_url_search_agent,
         "create": AgentFactory.get_create_agent,
     }
 
