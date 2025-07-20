@@ -1,455 +1,211 @@
-# 🛒 공구 챗봇 프로젝트 구조 문서
+### 🤖 뭉치면 산다 AI 어시스턴트
+뭉치면 산다(뭉산) V2 AI 어시스턴트는 LangGraph 기반 멀티 에이전트 시스템을 활용하여 자연어로 공동구매 플랫폼의 기능을 이용할 수 있는 지능형 대화형 AI입니다.
+🎯 핵심 특징
+🤖 4개 전문 에이전트 시스템
 
-# 구조 바뀔때마다 업데이트 해야함! 
+💬 Chat Agent: 일상 대화 및 감정 지원 (온도: 0.7)
+🔍 Search Agent: 공구 검색 및 추천 (온도: 0.0)
+🔗 URL Search Agent: URL 기반 상품 검색 (온도: 0.0)
+✨ Create Agent: 공구 생성 (온도: 0.0)
 
-## 📋 프로젝트 개요
+🧠 지능형 라우팅 시스템
+사용자 메시지를 분석하여 가장 적절한 에이전트를 자동 선택
+사용자 메시지 → LLM 기반 의도 분석 → 에이전트 선택
+                     ↓ (실패시)
+                규칙 기반 키워드 매칭
+                     ↓ (실패시)  
+                  기본 채팅 에이전트
+📡 실시간 스트리밍 채팅
 
-**프로젝트명**: 공구 챗봇 API  
-**버전**: 5.0.0-hitl  
-**설명**: LangGraph 기반 멀티 에이전트 시스템을 활용한 공구 검색 및 생성 챗봇  
-**주요 기술**: FastAPI, LangChain, LangGraph, PostgreSQL, Google Vertex AI
+SSE (Server-Sent Events) 기반 실시간 응답
+타이핑 효과로 자연스러운 대화 경험
+JWT 쿠키 인증 (AccessToken)
 
----
+🔍 하이브리드 검색 시스템
 
-## 📁 전체 디렉토리 구조
+키워드 검색: 구체적인 상품명 검색
+벡터 검색: 의미 기반 카테고리 검색 (pgvector + Upstage 임베딩)
+조건 검색: 가격, 마감일, 정렬 옵션
 
-```
-0618-moongsan-chatbot/
-├── app.py                              # 🚀 메인 애플리케이션 진입점
-├── requirements.txt                    # 📦 Python 의존성 목록
-├── .env                               # 🔐 환경변수 (git 제외)
-├── .env.example                       # 📝 환경변수 예제
-├── .gitignore                         # 🚫 Git 제외 파일 목록
-├── deft-observer-456807-c5-e9dda0532301.json  # 🔑 Google Cloud 인증 (git 제외)
-├── 
-├── config/                            # ⚙️ 설정 관리
-│   ├── __init__.py                    # 📄 패키지 초기화 및 export
-│   └── settings.py                    # 🔧 Pydantic 기반 설정 클래스들
+🎨 구조화된 UI 응답
+검색 결과를 카드형 UI로 표시하기 위한 특별한 JSON 형식
+STRUCTURED_RESULT_START
+{"search_type": "🎯 키워드 검색", "results": [...]}
+STRUCTURED_RESULT_END
+
+📁 디렉토리 구조
+v2/
+├── 🚀 app.py                      # FastAPI 메인 애플리케이션 (103줄)
+├── 📦 requirements.txt            # Python 의존성
+├── 🔧 .env / env_sample          # 환경변수 설정
 │
-├── api/                               # 🌐 FastAPI 라우터들
-│   ├── __init__.py                    # 📄 라우터 통합 관리
-│   ├── chat.py                        # 💬 채팅 관련 엔드포인트
-│   ├── approval.py                    # ✅ 승인 관련 엔드포인트
-│   └── health.py                      # 💊 헬스체크 및 시스템 상태
+├── 📡 api/                       # REST API 엔드포인트
+│   ├── chat.py                   # 채팅 API (387줄)
+│   └── health.py                 # 헬스체크 API (177줄)
 │
-├── core/                              # 🎯 핵심 비즈니스 로직
-│   ├── __init__.py                    # 📄 핵심 기능 export
-│   ├── session.py                     # 👥 세션 및 승인 데이터 관리
-│   ├── message.py                     # 📨 메시지 처리 및 워크플로우 실행
-│   └── streaming.py                   # 📡 SSE 스트리밍 처리
+├── ⚙️ config/                    # 설정 관리
+│   └── settings.py               # Pydantic 기반 통합 설정 (325줄)
 │
-├── workflow/                          # 🤖 LangGraph 워크플로우 시스템
-│   ├── __init__.py                    # 📄 워크플로우 시스템 초기화
-│   ├── supervisor.py                  # 👑 메인 워크플로우 및 상태 관리
-│   ├── agents.py                      # 🎭 에이전트 생성 및 팩토리
-│   ├── prompts.py                     # 📝 에이전트 프롬프트 템플릿
-│   └── routing.py                     # 🧭 지능형 메시지 라우팅
+├── 🎯 core/                      # 핵심 비즈니스 로직
+│   ├── session.py                # 세션 & 승인 데이터 관리
+│   ├── message.py                # 메시지 처리 & 워크플로우 실행
+│   └── streaming.py              # SSE 스트리밍 처리
 │
-├── tools/                             # 🔧 에이전트 도구들
-│   ├── __init__.py                    # 📄 도구 패키지 초기화
-│   └── search_post_tool.py            # 🔍 공구 검색 도구 (PostgreSQL + 벡터)
+├── 🤖 workflow/                  # LangGraph 워크플로우 시스템
+│   ├── supervisor.py             # 메인 워크플로우 & 상태 관리 (434줄)
+│   ├── agents.py                 # 4개 에이전트 생성 & 팩토리 (360줄)
+│   ├── prompts.py                # 에이전트 프롬프트 템플릿
+│   └── routing.py                # 지능형 메시지 라우팅
 │
-├── utils/                             # 🛠️ 유틸리티 함수들
-│   ├── __init__.py                    # 📄 유틸리티 export
-│   └── formatting.py                 # 🎨 메시지 포맷팅 및 변환
+├── 🔧 tools/                     # 에이전트 도구들
+│   ├── search_post_tool.py       # 공구 검색 도구 (1004줄)
+│   ├── create_post_tool.py       # 공구 생성 도구
+│   └── search_urls_tool.py       # URL 검색 도구
 │
-├── models/                            # 📊 데이터 모델들
-│   ├── __init__.py                    # 📄 모델 export
-│   ├── chat.py                        # 💬 채팅 관련 Pydantic 모델
-│   └── approval.py                    # ✅ 승인 관련 Pydantic 모델
+├── 🛠️ utils/                     # 유틸리티 함수들
+│   └── formatting.py             # 메시지 포맷팅 & 변환
 │
-├── static/                            # 🌐 정적 파일 (임시 프론트엔드)
-│   └── index.html                     # 🎨 웹 채팅 인터페이스
+├── 🌐 static/                    # 웹 인터페이스 (임시)
+│   └── index.html                # 대화형 웹 UI (1328줄)
 │
-└── venv/                              # 🐍 Python 가상환경 (git 제외)
-```
+└── 🐍 venv/                      # Python 가상환경
 
----
+🌐 API 명세
+📡 채팅 API
+POST /chat/stream - 실시간 스트리밍 채팅
+🔐 인증: JWT 토큰을 AccessToken 쿠키로 전송
+Request:
+json{
+  "message": "콜라 공구 있어?",
+  "session_id": "user13-20250714-001",  // 선택사항
+  "user_id": 13,
+  "user_name": "이정택"
+}
+Response (SSE Stream):
+json// 1. 처리 시작
+data: {"type": "processing", "content": "분석 중...", "timestamp": "2025-07-14T10:00:00Z"}
 
-## 🗂️ 주요 파일 상세 설명
+// 2. AI 응답  
+data: {"type": "ai_response", "content": "응답 내용", "agent": "search", "timestamp": "..."}
 
-### 🚀 **메인 애플리케이션**
+// 3. 완료
+data: {"type": "completion", "content": "응답 완료", "timestamp": "..."}
+🔍 구조화된 검색 결과
+Search Agent는 검색 결과를 카드형 UI로 표시하기 위해 특별한 형식으로 응답:
+jsondata: {
+  "type": "ai_response",
+  "content": "STRUCTURED_RESULT_START\n{\"search_type\": \"🎯 키워드 검색\", \"query\": \"콜라\", \"total_count\": 3, \"results\": [...]}\nSTRUCTURED_RESULT_END\n\n참여하고 싶은 공구가 있으신가요?",
+  "agent": "search"
+}
 
-#### `app.py` (80줄)
-- **역할**: FastAPI 애플리케이션 진입점
-- **주요 기능**:
-  - FastAPI 앱 초기화 및 설정
-  - CORS 미들웨어 설정
-  - API 라우터 등록
-  - 워크플로우 시스템 초기화
-- **주요 변경사항**: 410줄 → 80줄로 대폭 간소화
+🤖 챗봇 에이전트 시스템
+💬 Chat Agent - 일상 대화
 
----
+역할: 친근한 일상 대화 및 감정 지원
+온도: 0.7 (창의적 응답)
+도구: get_current_time()
 
-### ⚙️ **설정 관리 (config/)**
+예시:
+👤 안녕하세요!
+🤖 안녕하세요 이정택님! 😊 저는 공구 도우미입니다. 
+   🔍 공구 검색, ✨ 공구 생성, 💬 일상 대화 등을 도와드려요!
+🔍 Search Agent - 공구 검색
 
-#### `config/settings.py` (250줄)
-- **역할**: Pydantic 기반 통합 설정 관리
-- **설정 클래스들**:
-  - `DatabaseSettings`: PostgreSQL 연결 설정
-  - `GoogleCloudSettings`: Vertex AI 및 인증 설정
-  - `UpstageSettings`: 임베딩 API 설정
-  - `LangfuseSettings`: 트레이싱 설정
-  - `ServerSettings`: FastAPI 서버 설정
-  - `WorkflowSettings`: 워크플로우 파라미터
-  - `LoggingSettings`: 로깅 레벨 및 포맷
-- **환경변수**: DB_*, GOOGLE_*, UPSTAGE_* 등 prefix 기반
+역할: 기존 공구 검색 및 추천
+온도: 0.0 (정확한 검색)
+도구: search_post() - PostgreSQL + 벡터 검색
 
-#### `config/__init__.py` (30줄)
-- **역할**: 설정 클래스들의 export 및 편의 함수 제공
+검색 방식:
 
----
+키워드 검색: "신라면", "콜라" 등 구체적 상품명
+벡터 검색: "간식", "생필품" 등 의미 기반 카테고리
+조건 검색: 가격, 마감일, 참여자 수 필터링
 
-### 🌐 **API 라우터 (api/)**
+예시:
+👤 콜라 공구 있어?
+🤖 [카드형 검색 결과 3개 표시]
+   📦 코카콜라 500ml 24개 - 15,000원
+   👥 8/20명 참여 | ⏰ D-3 마감
+🔗 URL Search Agent - URL 기반 검색
 
-#### `api/chat.py` (200줄)
-- **역할**: 채팅 관련 엔드포인트
-- **엔드포인트**:
-  - `POST /chat/stream`: SSE 스트리밍 채팅
-  - `GET /chat/history/{session_id}`: 채팅 히스토리 조회
-  - `DELETE /chat/session/{session_id}`: 세션 삭제
-  - `GET /chat/sessions/stats`: 세션 통계
-- **특징**: 스트리밍 매니저를 통한 실시간 응답 처리
+역할: URL에서 상품 정보 추출 및 검색
+온도: 0.0 (정확한 처리)
+도구: search_urls() - 쿠팡, 11번가 등 지원
 
-#### `api/approval.py` (150줄)
-- **역할**: 사용자 승인(HITL) 관련 엔드포인트
-- **엔드포인트**:
-  - `POST /chat/approve/{session_id}/{approval_id}`: 승인/거부 처리
-  - `GET /chat/pending-approvals/{session_id}`: 대기 중인 승인 조회
-  - `GET /chat/approvals/stats`: 승인 통계
-  - `DELETE /chat/approvals/{session_id}`: 세션별 승인 삭제
-  - `POST /chat/approvals/{approval_id}/extend`: 승인 타임아웃 연장
+예시:
+👤 https://www.coupang.com/vp/products/123456 이걸로 공구 있어?
+🤖 URL에서 상품 정보를 추출하고 있어요! 🔍
+   [해당 상품 관련 기존 공구 검색 결과]
+✨ Create Agent - 공구 생성
 
-#### `api/health.py` (200줄)
-- **역할**: 시스템 상태 및 헬스체크
-- **엔드포인트**:
-  - `GET /`: 루트 페이지 (index.html)
-  - `GET /health`: 기본 헬스체크
-  - `GET /health/detailed`: 상세 시스템 정보
-  - `GET /health/database`: DB 전용 헬스체크
-  - `GET /metrics`: 시스템 메트릭 (모니터링용)
-  - `GET /status`: 간단한 상태 확인 (로드밸런서용)
-  - `GET /ping`: 핑 엔드포인트
-  - `GET /version`: 서비스 버전 정보
-  - `GET /config/public`: 공개 설정 정보
+역할: 새로운 공구 생성
+온도: 0.0 (안정적 생성)
+도구: create_post() - 공구 게시글 생성
 
-#### `api/__init__.py` (25줄)
-- **역할**: 모든 라우터를 FastAPI 앱에 일괄 등록
+예시:
+👤 콜라 공구 만들어줘
+🤖 ✅ 공구 게시글이 성공적으로 생성되었습니다!
+   새로운 콜라 공구가 등록되었어요! 🎉
 
----
+🎯 사용자 활용 예시
+💬 일상 대화
+👤 안녕! 심심해
+🤖 안녕하세요! 😊 심심하시군요! 
+   재미있는 간식 공구를 둘러보시는 건 어떨까요? 🍪
+   "과자 공구 찾아줘"라고 말씀해 주세요!
+🔍 공구 검색
+👤 신라면 공구 있어?
+🤖 신라면 공구를 찾고 있어요! 🍜
 
-### 🎯 **핵심 비즈니스 로직 (core/)**
+[구조화된 카드 결과]
+📦 신라면 멀티팩 40개입
+💰 28,000원 | 👥 15/20명 | ⏰ D-3
+📍 픽업: 강남역 | 🔗 [참여하기]
+🔗 URL로 공구 생성
+👤 https://www.coupang.com/vp/products/123456 이걸로 공구 만들어줘
+🤖 제공해주신 URL의 상품 정보를 확인하고 있어요! 🔗
+   ✅ 공구 게시글이 성공적으로 생성되었습니다!
+🎨 조건별 검색
+👤 천원 이하 간식 찾아줘
+🤖 1,000원 이하 간식 공구를 찾고 있어요! 🔍
 
-#### `core/session.py` (400줄)
-- **역할**: 세션 및 승인 데이터 관리
-- **전역 데이터**:
-  - `SESSION_DATA`: 세션별 메시지 히스토리
-  - `PENDING_APPROVALS`: 승인 대기 중인 작업들
-- **주요 함수**:
-  - 세션 관리: `get_session_data()`, `add_message_to_session()`, `clear_session_data()`
-  - 승인 관리: `add_pending_approval()`, `get_pending_approval()`, `remove_pending_approval()`
-  - 정리 기능: `cleanup_old_sessions()`, `cleanup_old_approvals()`
-  - 통계: `get_all_session_stats()`, `get_all_approval_stats()`
+[4개 카드 결과]
+🍪 오레오 미니 - 800원
+🍬 하이츄 딸기맛 - 950원  
+🍫 킨더조이 - 990원
+🥜 허니버터칩 - 1,000원
 
-#### `core/message.py` (250줄)
-- **역할**: 메시지 처리 및 워크플로우 실행
-- **주요 클래스**:
-  - `MessageProcessor`: 사용자 메시지 처리 및 워크플로우 실행
-  - `ApprovalProcessor`: 승인/거부 처리
-- **특징**: LangFuse 트레이싱, 유효성 검사, 에러 처리 포함
+⚙️ 기술 스택 & 설정
+🛠️ 핵심 기술
 
-#### `core/streaming.py` (200줄)
-- **역할**: SSE 스트리밍 처리
-- **주요 함수**:
-  - `create_chat_stream()`: 채팅 스트리밍 생성
-  - `create_approval_stream()`: 승인 결과 스트리밍
-  - `handle_chat_stream()`: 검증 포함 스트리밍 처리
-- **특징**: 에러 처리, 검증, 구조화된 응답 지원
+AI/ML: LangChain, LangGraph, Google Vertex AI (Gemini 2.0 Flash)
+Backend: FastAPI, Pydantic, uvicorn
+Database: PostgreSQL (pgvector), MySQL (SSH 터널링)
+임베딩: Upstage API
+모니터링: LangFuse
+Frontend: HTML5/CSS3 + Vanilla JS (임시)
 
-#### `core/__init__.py` (50줄)
-- **역할**: 핵심 기능들의 통합 export
-
----
-
-### 🤖 **워크플로우 시스템 (workflow/)**
-
-#### `workflow/supervisor.py` (400줄)
-- **역할**: LangGraph 기반 메인 워크플로우
-- **상태 정의**: `WorkflowState` (메시지, 에이전트, 승인 상태 등)
-- **노드 함수들**:
-  - `supervisor_routing_node()`: 지능형 라우팅
-  - `run_chat_agent_node()`, `run_search_agent_node()`, `run_participate_agent_node()`
-  - `human_approval_node()`: 사용자 승인 처리
-- **워크플로우 관리**: `WorkflowManager` 클래스로 생성/초기화/재설정
-
-#### `workflow/agents.py` (350줄)
-- **역할**: 에이전트 생성 및 관리
-- **에이전트들**:
-  - `create_chat_agent()`: 일상 대화 에이전트 (온도: 0.7)
-  - `create_search_agent()`: 공구 검색 에이전트 (온도: 0.0)
-  - `create_participate_agent()`: 공구 생성 에이전트 (온도: 0.2)
-- **관리 클래스**: `AgentFactory` (캐싱, 검증, 안전 실행)
-- **도구들**: `get_current_time()`, `create_group_buy_post()`, `request_human_approval()`
-
-#### `workflow/prompts.py` (400줄)
-- **역할**: 에이전트 프롬프트 중앙 관리
-- **프롬프트들**:
-  - `get_chat_agent_prompt()`: 친근한 대화 어시스턴트
-  - `get_search_agent_prompt()`: 구조화된 검색 결과 처리 규칙
-  - `get_participate_agent_prompt()`: 3단계 공구 생성 프로세스
-  - `get_supervisor_prompt()`: 라우팅 결정 프롬프트
-- **관리 클래스**: `PromptManager` (프롬프트 검증, 메타데이터, 동적 업데이트)
-
-#### `workflow/routing.py` (350줄)
-- **역할**: 지능형 메시지 라우팅
-- **주요 클래스**:
-  - `RouterDecision`: 라우팅 결정 결과
-  - `MessageRouter`: LLM 기반 스마트 라우팅
-  - `RoutingAnalyzer`: 라우팅 통계 및 분석
-- **라우팅 방식**: LLM 기반 → 규칙 기반 폴백 → 기본값 (chat)
-- **분석 기능**: 라우팅 히스토리, 통계, 신뢰도 추적
-
-#### `workflow/__init__.py` (100줄)
-- **역할**: 워크플로우 시스템 통합 관리
-- **기능**: 패키지 정보, 의존성 검증, 시스템 초기화
-
----
-
-### 🔧 **도구 및 유틸리티**
-
-#### `tools/search_post_tool.py` (625줄)
-- **역할**: 공구 검색 도구 (PostgreSQL + 벡터 검색)
-- **검색 기능**:
-  - 키워드 검색: 구체적인 상품명
-  - 벡터 검색: 의미 기반 카테고리 검색  
-  - 조건 검색: 가격, 정렬, 날짜 조건
-- **결과 포맷**: 구조화된 JSON (웹 UI 카드 형태)
-- **DB 연동**: psycopg2, pgvector, Upstage 임베딩
-
-#### `utils/formatting.py` (400줄)
-- **역할**: 메시지 포맷팅 및 변환
-- **주요 함수**:
-  - `basemessage_to_dict()`: LangChain 메시지 → 프론트엔드용
-  - `format_sse_data()`: SSE 형식 포맷팅
-  - `format_*_response()`: 각종 응답 포맷터들
-- **구조화된 검색**: `parse_structured_search_result()`, `format_structured_search_response()`
-
----
-
-### 📊 **데이터 모델 (models/)**
-
-#### `models/chat.py` (40줄)
-- **모델들**:
-  - `ChatMessage`: 채팅 메시지 요청
-  - `ChatResponse`: 채팅 응답
-  - `SessionStats`: 세션 통계
-- **검증**: Pydantic field_validator 사용
-
-#### `models/approval.py` (50줄)
-- **모델들**:
-  - `ApprovalRequest`: 승인 요청
-  - `ApprovalInfo`: 승인 정보
-  - `ApprovalResponse`: 승인 처리 응답
-  - `PendingApprovals`: 대기 중인 승인 목록
-  - `ApprovalStats`: 승인 통계
-
----
-
-### 🌐 **프론트엔드 (static/)**
-
-#### `static/index.html` (1000줄)
-- **역할**: 웹 채팅 인터페이스 (임시, 추후 분리 예정)
-- **주요 기능**:
-  - SSE 기반 실시간 채팅
-  - 구조화된 검색 결과 카드 표시
-  - 승인 요청 UI
-  - 세션 관리
-- **스타일**: CSS Grid, Flexbox, 반응형 디자인
-- **JavaScript**: 바닐라 JS, SSE EventSource, JSON 파싱
-
----
-
-## 🔄 **데이터 플로우**
-
-### 📨 **메시지 처리 플로우**
-
-```
-1. 사용자 메시지 입력 (index.html)
-   ↓
-2. POST /chat/stream (api/chat.py)
-   ↓
-3. StreamingManager.stream_chat_response() (core/streaming.py)
-   ↓
-4. MessageProcessor.process_user_message() (core/message.py)
-   ↓
-5. supervisor_workflow.ainvoke() (workflow/supervisor.py)
-   ↓
-6. supervisor_routing_node() → MessageRouter (workflow/routing.py)
-   ↓
-7. 선택된 에이전트 실행 (workflow/agents.py)
-   ↓
-8. 도구 실행 (tools/search_post_tool.py 등)
-   ↓
-9. 응답 포맷팅 (utils/formatting.py)
-   ↓
-10. SSE 스트리밍 응답 (브라우저)
-```
-
-### ✅ **승인 처리 플로우**
-
-```
-1. 공구 생성 요청
-   ↓
-2. participate_agent 실행
-   ↓
-3. request_human_approval() 도구 호출
-   ↓
-4. human_approval_node() 실행
-   ↓
-5. 승인 요청 UI 표시
-   ↓
-6. 사용자 승인/거부 (index.html)
-   ↓
-7. POST /chat/approve/{session_id}/{approval_id} (api/approval.py)
-   ↓
-8. ApprovalProcessor.process_approval() (core/message.py)
-   ↓
-9. 승인 결과 메시지 생성
-   ↓
-10. 완료/취소 메시지 표시
-```
-
----
-
-## 🔧 **주요 기술 스택**
-
-### **백엔드**
-- **FastAPI**: 웹 프레임워크
-- **LangChain**: LLM 통합 프레임워크
-- **LangGraph**: 멀티 에이전트 워크플로우
-- **Pydantic**: 데이터 검증 및 설정 관리
-- **PostgreSQL**: 메인 데이터베이스
-- **pgvector**: 벡터 검색
-
-### **AI/ML**
-- **Google Vertex AI**: Gemini 2.0 Flash 모델
-- **Upstage API**: 텍스트 임베딩
-- **LangFuse**: AI 트레이싱 및 모니터링
-
-### **프론트엔드 (임시)**
-- **HTML5/CSS3**: 웹 인터페이스
-- **Vanilla JavaScript**: 클라이언트 로직
-- **SSE (Server-Sent Events)**: 실시간 통신
-
----
-
-## 🚀 **실행 방법**
-
-### **로컬 개발**
-```bash
-# 가상환경 활성화
+🚀 실행 방법
+bash# 1. 가상환경 설정
+python3 -m venv venv
 source venv/bin/activate
 
-# 의존성 설치
+# 2. 의존성 설치
 pip install -r requirements.txt
 
-# 환경변수 설정
-cp .env.example .env
-# .env 파일을 실제 값으로 수정
+# 3. 환경변수 설정 (.env)
+GOOGLE_CLOUD_PROJECT=your-project
+UPSTAGE_API_KEY=your-key
+PG_HOST=localhost
+MYSQL_DB_HOST=your-host
 
-# 애플리케이션 실행
+# 4. 실행
 python app.py
-```
 
-### **테스트**
-```bash
-# 설정 테스트
-python -m config.settings
+# 5. 접속: http://localhost:8000
+⚠️ 주요 제한사항
 
-# 워크플로우 테스트
-python -m workflow
-
-# 개별 모듈 테스트
-python -m workflow.agents
-python -m workflow.routing
-python -m tools.search_post_tool
-```
-
-### **API 테스트**
-```bash
-# 헬스체크
-curl http://localhost:8000/health
-
-# 채팅 테스트 (웹 브라우저)
-http://localhost:8000
-```
-
----
-
-## 📝 **환경변수 설정**
-
-### **필수 환경변수**
-```bash
-# Google Cloud
-GOOGLE_PROJECT=deft-observer-456807-c5
-GOOGLE_CREDENTIALS_PATH=deft-observer-*.json
-
-# Upstage API
-UPSTAGE_API_KEY=your_api_key
-
-# 데이터베이스
-DB_HOST=localhost
-DB_USER=username
-DB_PASSWORD=password
-DB_DBNAME=database
-```
-
-### **선택적 환경변수**
-```bash
-# LangFuse (트레이싱)
-LANGFUSE_PUBLIC_KEY=pk_*
-LANGFUSE_SECRET_KEY=sk_*
-
-# 서버 설정
-SERVER_PORT=8000
-SERVER_DEBUG=true
-
-# 로깅
-LOG_LEVEL=INFO
-```
-
----
-
-## 🔍 **주요 특징 및 개선사항**
-
-### **✨ 새로운 기능**
-- **모듈화된 아키텍처**: 기능별 명확한 분리
-- **Pydantic 설정 관리**: 타입 안전한 설정 시스템
-- **지능형 라우팅**: LLM 기반 + 규칙 기반 폴백
-- **구조화된 검색 결과**: JSON 기반 카드형 UI
-- **포괄적인 헬스체크**: 시스템 상태 모니터링
-- **승인 타임아웃 관리**: 오래된 승인 자동 정리
-
-### **🔧 기술적 개선**
-- **코드 분리**: app.py 410줄 → 80줄
-- **에러 처리**: 각 레이어별 세밀한 에러 처리
-- **로깅**: 구조화된 로깅 시스템
-- **캐싱**: 에이전트 및 LLM 인스턴스 캐싱
-- **검증**: 입력 데이터 및 설정 검증
-- **확장성**: 새로운 에이전트/도구 추가 용이
-
-### **🛡️ 보안 강화**
-- **환경변수 분리**: 민감한 정보 .env 관리
-- **입력 검증**: Pydantic을 통한 데이터 검증
-- **세션 관리**: 세션별 격리 및 타임아웃
-- **에러 마스킹**: 내부 오류 정보 숨김
-
----
-
----
-- **개발자**: Moongsan-AI-Team
-- **마지막 업데이트**: 2025-06-19
-
----
-
-*이 문서는 프로젝트 구조 변경시 함께 업데이트되어야 합니다.*
+메시지 길이: 1-1000자
+인증: AccessToken 쿠키 필수
+세션: 메모리 기반 (서버 재시작시 초기화)
+타임아웃: 장시간 무응답시 연결 종료
