@@ -77,6 +77,7 @@ class MessageRouter:
             logger.info(
                 f"🧠 라우팅 결정 [마지막 메시지: {messages[-1].content[:30]}...] "
                 f"[선택: {decision.selected_agent}] [신뢰도: {decision.confidence:.2f}]"
+                f"에이전트 테스크: {decision.task_description}"
             )
 
             return decision
@@ -95,7 +96,8 @@ class MessageRouter:
         chat_history = ""
         current_agent = "None"  # 기본값
 
-        # 마지막 메시지를 제외하고 대화 기록 생성
+        # 마지막 메시지를 제외하고 대화 기록 생성(프롬프트 성능 향상)
+        # for msg in messages[:-1]:
         for msg in reversed(messages[:-1]):
             role = "User" if isinstance(msg, HumanMessage) else "Assistant"
             chat_history += f"{role}: {msg.content}\n"
@@ -111,6 +113,7 @@ class MessageRouter:
             current_agent=current_agent,
         )
         print("-----------------------")
+        print("마지막 에이전트: ", current_agent)
         print("대화 기록:\n", chat_history.strip())
         print("-----------------------")
         # LLM 호출

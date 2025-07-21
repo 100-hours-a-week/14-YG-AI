@@ -15,7 +15,7 @@ load_dotenv()
 # --- 도구 구현 ---
 
 SITE_MAP = {
-    "coupang": "www.coupang.com",
+    "coupang": "www.coupang.com/vp/products",
 }
 
 try:
@@ -106,7 +106,9 @@ def _parse_metadata_from_google_result(result: Dict) -> Optional[Dict]:
 @tool
 async def search_urls(query: str) -> str:
     """
-    사용자가 상품명을 입력하면 '쿠팡(Coupang)'에서 해당 상품을 검색하여, 관련성 높은 '상품 상세 페이지'의 정보(URL, 상품명, 가격)를 최대 3개 찾아 JSON 리스트로 반환합니다.
+    사용자가 원하는 상품명(query)을 입력받아, 쿠팡(Coupang)에서 실제 판매 중인 상품의 최신 정보(URL, 상품명, 가격)를 검색하여 JSON 리스트 형태로 반환합니다.
+    새로운 공구를 생성하기 위해 '실시간 최신 상품 정보'가 필요할 때 **반드시 사용해야 하는 필수 도구**입니다.
+    예를 들어, 사용자가 '새우깡'을 원하면 query에 '새우깡'을 넣어 호출합니다.
     """
     if search_wrapper is None:
         return json.dumps({"error": "Google Search API가 제대로 설정되지 않았습니다."})
@@ -157,7 +159,7 @@ if __name__ == "__main__":
 
     async def run_test(query: str):
         print("-" * 60)
-        result_json_str = await search_product_urls.ainvoke({"query": query})
+        result_json_str = await search_urls.ainvoke({"query": query})
         print(f"\n[최종 결과]:")
         try:
             parsed_data = json.loads(result_json_str)

@@ -121,7 +121,12 @@ async def run_agent_node(
             return state
 
         # 에이전트 실행
-        result = await run_agent_safe(agent, state["messages"], config)
+        # print("messages:", state["messages"][-1])
+        print("tesk_description:", state.get("current_task", ""))
+        if agent_name == "chat":  # 채팅 에이전트는 메시지 리스트를 사용
+            result = await run_agent_safe(agent, state["messages"], config)
+        else:  # 다른 에이전트는 current_task를 사용
+            result = await run_agent_safe(agent, state["current_task"], config)
 
         if not result["success"]:
             logger.error(f"❌ {agent_name} 에이전트 실행 실패: {result['error']}")

@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>공구 챗봇</title>
+    <!-- ❗️ 1. marked.js 라이브러리 추가 ❗️ -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -664,6 +666,62 @@
             .chat-header h1 {
                 font-size: 20px;
             }
+            /* ❗️ 4. 마크다운 요소들을 위한 CSS 스타일 추가 ❗️ */
+            .message-content strong { /* **굵은 글씨** */
+                font-weight: 700;
+            }
+
+            .message-content em { /* *기울임꼴* */
+                font-style: italic;
+            }
+
+            .message-content ul, .message-content ol { /* 목록 */
+                margin: 10px 0 10px 25px;
+            }
+            
+            .message-content li { /* 목록 아이템 */
+                margin-bottom: 5px;
+            }
+
+            .message-content a { /* 하이퍼링크 */
+                color: #667eea;
+                text-decoration: underline;
+                font-weight: 600;
+            }
+            
+            .message-content code { /* `코드` */
+                background-color: rgba(102, 126, 234, 0.1);
+                color: #5a6fd8;
+                border-radius: 5px;
+                padding: 3px 6px;
+                font-family: 'Consolas', 'Monaco', monospace;
+                font-size: 0.9em;
+                border: 1px solid rgba(102, 126, 234, 0.2);
+            }
+
+            .message-content pre { /* ```코드 블록``` */
+                background-color: #2d2d2d;
+                color: #f8f8f2;
+                padding: 15px;
+                border-radius: 8px;
+                margin: 10px 0;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+            }
+            .message-content pre code {
+                background: none;
+                color: inherit;
+                padding: 0;
+                border: none;
+            }
+
+            .message-content blockquote { /* > 인용구 */
+                margin: 10px 0;
+                padding-left: 15px;
+                border-left: 3px solid #667eea;
+                color: #555;
+                font-style: italic;
+            }
         }
     </style>
 </head>
@@ -680,15 +738,28 @@
         <div class="chat-messages" id="chatMessages">
             <div class="message ai">
                 <div class="message-content">
-                    안녕하세요! 저는 공구 전문 챗봇입니다. 🙌<br><br>
-                    다음과 같은 도움을 드릴 수 있어요:<br>
-                    • 💬 일상 대화 및 정보 제공<br>
-                    • 🔍 공구 검색 및 추천<br>
-                    • 🎯 새로운 공구 생성<br><br>
-                    무엇을 도와드릴까요?
+                    안녕하세요! 뭉치면 산다 전문 챗봇입니다. 🤖<br><br>
+                    저와 함께 원하는 공구를 찾고, 세상에 없는 공구는 직접 만들어 보세요! <br><br>
+    
+                    <p>✅ <strong>이미 있는 공구 찾기</strong><br>
+                    뭉산에 올라온 공구를 찾아드릴게요.</p>
+                    <blockquote><code>"우유 공구 있어?”</code><br>
+                    <code>“천원 이하 간식 찾아줘”</code><br>
+                    <code>“지금 공구 뭐 있어?”</code></blockquote>
+                    
+                    <br>
+                    <p>✨ <strong>새로운 공구 만들기</strong><br>
+                    원하는 상품의 이름을 알려주시면, 제가 URL을 찾아 공구를 만들어 드릴게요!</p>
+                    <blockquote><code>“콜라 공구 만들어줘”</code><br>
+                    <code>“[상품 URL] 이걸로 공구 만들어줘”</code><br>
+                    <code>“공구 만들고 싶어”</code></blockquote>
+                    
+                    <br>
+                    💬 그 외에도 궁금한 점이나 일상적인 대화도 환영이에요! <br>
+                    어떤 걸 도와드릴까요? 편하게 말씀해주세요!
                 </div>
                 <div class="message-info">
-                    <span class="agent-badge system">시스템</span>
+                    <span class="agent-badge system">system</span>
                     <span id="currentTime"></span>
                 </div>
             </div>
@@ -717,6 +788,15 @@
     <script>
         let sessionId = null;
         let isProcessing = false;
+
+        const renderer = new marked.Renderer();
+        // 링크(<a> 태그)를 생성하는 규칙을 우리가 직접 재정의합니다.
+            renderer.link = function(href, title, text) {
+            // 기본 a 태그를 생성하되,
+            // target="_blank" (새 탭에서 열기)와
+            // rel="noopener noreferrer" (보안 설정) 속성을 추가합니다.
+            return `<a target="_blank" rel="noopener noreferrer" href="${href}" title="${title || ''}">${text}</a>`;
+        };
 
         // 페이지 로드시 초기화
         window.onload = function() {
@@ -854,7 +934,17 @@
             
             return result;
         }
+        // ❗️ 2. marked.js 라이브러리 설정 (보안 강화) ❗️
+        // 이 설정은 AI가 생성한 텍스트에 포함될 수 있는 악성 스크립트를 방지합니다. (매우 중요)
+        marked.setOptions({
+            // renderer: renderer,
+            breaks: true,   // 엔터(줄바꿈)를 <br> 태그로 변환
+            gfm: true,      // GitHub Flavored Markdown 활성화
+            sanitize: true  // HTML 태그를 무시하여 XSS 공격 방지
+        });
+
         // ✨ 개선된 addMessage 함수 - 혼합 컨텐츠 지원
+        // ❗️ 3. addMessage 함수를 marked.js 사용하도록 수정 ❗️
         function addMessage(content, type, agent = null, timestamp = null) {
             const messagesContainer = document.getElementById('chatMessages');
             const messageDiv = document.createElement('div');
@@ -862,24 +952,22 @@
             
             const agentBadge = agent ? `<span class="agent-badge ${agent}">${getAgentDisplayName(agent)}</span>` : '';
             const timeDisplay = timestamp || getCurrentTime();
-            if (agent === 'system' && content.includes('hidden')) {
-                return; // 숨김 처리
-            }
-            // AI 메시지이고 구조화된 결과를 포함하는 경우
+            
+            // 기존의 parseSimpleMarkdown 함수는 더 이상 필요 없습니다.
+            // ⭐️ 모든 텍스트 컨텐츠를 marked.parse()로 처리합니다. ⭐️
+            const formattedContent = marked.parse(content);
+            
             if (type === 'ai' && content.includes('STRUCTURED_RESULT_START')) {
-                console.log('🔍 혼합 컨텐츠 처리 시작');
-                
                 const { textPart, structuredPart } = separateContent(content);
-                console.log('📝 텍스트 부분:', textPart);
-                console.log('📊 구조화된 부분 존재:', !!structuredPart);
-                
-                const mixedHTML = createMixedContentHTML(textPart, structuredPart, agent, timeDisplay);
+                // AI 응답의 텍스트 부분만 마크다운으로 파싱
+                const parsedTextPart = textPart ? marked.parse(textPart) : null;
+                const mixedHTML = createMixedContentHTML(parsedTextPart, structuredPart, agent, timeDisplay);
                 messageDiv.innerHTML = mixedHTML;
             } 
-            // 일반 메시지 처리
             else {
+                // 일반 메시지는 전체를 마크다운으로 파싱
                 messageDiv.innerHTML = `
-                    <div class="message-content">${content}</div>
+                    <div class="message-content">${formattedContent}</div>
                     <div class="message-info">
                         ${agentBadge}
                         <span>${timeDisplay}</span>
@@ -887,11 +975,8 @@
                 `;
             }
             
-            // 타이핑 인디케이터 앞에 삽입
             const typingIndicator = document.getElementById('typingIndicator');
             messagesContainer.insertBefore(messageDiv, typingIndicator);
-            
-            // 스크롤을 맨 아래로
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
@@ -1144,7 +1229,7 @@
             //const userInfo = getCurrentUserInfo();  실제 유저 정보 전달
             const userInfo = {
                 user_id: 13,  // 실제로는 로그인 정보에서 가져옴
-                user_name: "이정택",  // 실제로는 로그인 정보에서 가져옴
+                user_name: "테스트유저",  // 실제로는 로그인 정보에서 가져옴
             };
             const requestBody = {
                 message: message,
@@ -1271,7 +1356,7 @@
                                 새로운 대화가 시작되었습니다! 무엇을 도와드릴까요?
                             </div>
                             <div class="message-info">
-                                <span class="agent-badge system">시스템</span>
+                                <span class="agent-badge system">system</span>
                                 <span>${getCurrentTime()}</span>
                             </div>
                         </div>
