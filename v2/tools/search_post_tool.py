@@ -660,22 +660,107 @@ def build_vector_sql_query(
     return sql
 
 
-def build_sql_query(conditions: Dict, result_id: Optional[List[int]] = None) -> str:
-    """최종 SQL 쿼리 생성(MySQL)"""
+# def build_sql_query(conditions: Dict, result_id: Optional[List[int]] = None) -> str:
+#     """
+#     최종 SQL 쿼리 생성(MySQL)
 
-    # SELECT 절 - unit_amount 추가
-    select_clause = "id, title, name, price, unit_price, total_amount, left_amount, unit_amount, due_date, pickup_date, post_status, participant_count, created_at"
+#     conditions: 앞서 정규식과 LLM으로 정의된 조건들
+#     result_id: pg에서 유사도 검색 결과 상위 공구들의 ID
+#     """
+
+#     # SELECT 절 - unit_amount 추가
+#     select_clause = "id, title, name, price, unit_price, total_amount, left_amount, unit_amount, due_date, pickup_date, post_status, participant_count, created_at"
+
+#     # WHERE 절
+#     where_conditions = ["deleted_at IS NULL"]
+#     where_conditions.append(f"post_status = '{conditions['post_status']}'")
+
+#     if conditions["search_type"] == "vector" and result_id:
+#         # 벡터 검색 결과가 있을 때
+#         where_conditions += f"id IN ({', '.join(map(str, result_id))})"
+
+#     # 가격 조건
+#     price_col = "price" if conditions["price_type"] == "total" else "unit_price"
+#     if conditions["max_price"] is not None:
+#         where_conditions.append(f"{price_col} <= {conditions['max_price']}")
+#     if conditions["min_price"] is not None:
+#         where_conditions.append(f"{price_col} >= {conditions['min_price']}")
+
+#     # 날짜 조건
+#     if conditions.get("due_date_filter"):
+#         due_date = conditions["due_date_filter"]
+#         where_conditions.append(f"due_date <= '{due_date}'")
+
+#     if conditions.get("pickup_date_filter"):
+#         pickup_date = conditions["pickup_date_filter"]
+#         where_conditions.append(f"pickup_date <= '{pickup_date}'")
+
+#     # 키워드 검색 조건
+#     if conditions["search_type"] == "keyword" and conditions["product_terms"]:
+#         keyword_conditions = []
+#         for term in conditions["product_terms"]:
+#             escaped_term = term.replace("'", "''")
+#             keyword_conditions.append(
+#                 f"(title LIKE '%{escaped_term}%' OR name LIKE '%{escaped_term}%')"
+#             )
+#         if keyword_conditions:
+#             where_conditions.append(f"({' OR '.join(keyword_conditions)})")
+
+#     # ORDER BY 절
+#     if conditions["sort_by"]:
+#         if conditions["sort_by"] == "price":
+#             sort_column = (
+#                 "price" if conditions["price_type"] == "total" else "unit_price"
+#             )
+#         else:
+#             sort_column = conditions["sort_by"]
+#         order_clause = f"ORDER BY {sort_column} {conditions['sort_order']}"
+#     else:
+#         order_clause = "ORDER BY created_at DESC"
+
+#     # 최종 SQL
+#     sql = f"""
+#     SELECT {select_clause}
+#     FROM group_buy
+#     WHERE {' AND '.join(where_conditions)}
+#     {order_clause}
+#     LIMIT {conditions['top_k']}
+#     """
+#     return sql
+
+
+def build_sql_query(conditions: Dict, result_id: Optional[List[int]] = None) -> str:
+    """
+    최종 SQL 쿼리 생성(MySQL) - Image 테이블 JOIN 포함
+
+    conditions: 앞서 정규식과 LLM으로 정의된 조건들
+    result_id: pg에서 유사도 검색 결과 상위 공구들의 ID
+    """
+
+    # SELECT 절 - Image 테이블의 url 추가
+    select_clause = """
+    p.id, p.title, p.name, p.price, p.unit_price, p.total_amount, 
+    p.left_amount, p.unit_amount, p.due_date, p.pickup_date, 
+    p.post_status, p.participant_count, p.created_at,
+    img.url as thumbnail_url
+    """
+
+    # FROM 절 - LEFT JOIN으로 썸네일 이미지 가져오기, is_thumbnail = 1 인 이미지만 join
+    from_clause = """
+    FROM post p
+    LEFT JOIN image img ON p.id = img.post_id AND img.is_thumbnail = 1
+    """
 
     # WHERE 절
-    where_conditions = ["deleted_at IS NULL"]
-    where_conditions.append(f"post_status = '{conditions['post_status']}'")
+    where_conditions = ["p.deleted_at IS NULL"]
+    where_conditions.append(f"p.post_status = '{conditions['post_status']}'")
 
     if conditions["search_type"] == "vector" and result_id:
         # 벡터 검색 결과가 있을 때
-        where_conditions += f"id IN ({', '.join(map(str, result_id))})"
+        where_conditions.append(f"p.id IN ({', '.join(map(str, result_id))})")
 
     # 가격 조건
-    price_col = "price" if conditions["price_type"] == "total" else "unit_price"
+    price_col = "p.price" if conditions["price_type"] == "total" else "p.unit_price"
     if conditions["max_price"] is not None:
         where_conditions.append(f"{price_col} <= {conditions['max_price']}")
     if conditions["min_price"] is not None:
@@ -684,11 +769,11 @@ def build_sql_query(conditions: Dict, result_id: Optional[List[int]] = None) -> 
     # 날짜 조건
     if conditions.get("due_date_filter"):
         due_date = conditions["due_date_filter"]
-        where_conditions.append(f"due_date <= '{due_date}'")
+        where_conditions.append(f"p.due_date <= '{due_date}'")
 
     if conditions.get("pickup_date_filter"):
         pickup_date = conditions["pickup_date_filter"]
-        where_conditions.append(f"pickup_date <= '{pickup_date}'")
+        where_conditions.append(f"p.pickup_date <= '{pickup_date}'")
 
     # 키워드 검색 조건
     if conditions["search_type"] == "keyword" and conditions["product_terms"]:
@@ -696,7 +781,7 @@ def build_sql_query(conditions: Dict, result_id: Optional[List[int]] = None) -> 
         for term in conditions["product_terms"]:
             escaped_term = term.replace("'", "''")
             keyword_conditions.append(
-                f"(title LIKE '%{escaped_term}%' OR name LIKE '%{escaped_term}%')"
+                f"(p.title LIKE '%{escaped_term}%' OR p.name LIKE '%{escaped_term}%')"
             )
         if keyword_conditions:
             where_conditions.append(f"({' OR '.join(keyword_conditions)})")
@@ -705,18 +790,18 @@ def build_sql_query(conditions: Dict, result_id: Optional[List[int]] = None) -> 
     if conditions["sort_by"]:
         if conditions["sort_by"] == "price":
             sort_column = (
-                "price" if conditions["price_type"] == "total" else "unit_price"
+                "p.price" if conditions["price_type"] == "total" else "p.unit_price"
             )
         else:
-            sort_column = conditions["sort_by"]
+            sort_column = f"p.{conditions['sort_by']}"
         order_clause = f"ORDER BY {sort_column} {conditions['sort_order']}"
     else:
-        order_clause = "ORDER BY created_at DESC"
+        order_clause = "ORDER BY p.created_at DESC"
 
     # 최종 SQL
     sql = f"""
     SELECT {select_clause}
-    FROM group_buy
+    {from_clause}
     WHERE {' AND '.join(where_conditions)}
     {order_clause}
     LIMIT {conditions['top_k']}
@@ -780,6 +865,7 @@ async def format_search_results_structured(
         # 안전한 데이터 변환
         formatted_item = {
             "id": f"{item.get('id', '')}",
+            "thumbnail_url": f"{item.get('thumbnail_url', '')}",
             "title": str(item.get("title", "제목 없음")),
             "product_name": str(item.get("name", "상품명 없음")),
             "unit_price": (
@@ -808,16 +894,6 @@ async def format_search_results_structured(
             "due_date": str(item.get("due_date", "")) if item.get("due_date") else "",
             "pickup_date": (
                 str(item.get("pickup_date", "")) if item.get("pickup_date") else ""
-            ),
-            "view_count": (
-                int(item.get("view_count", 0))
-                if item.get("view_count") is not None
-                else 0
-            ),
-            "wish_count": (
-                int(item.get("wish_count", 0))
-                if item.get("wish_count") is not None
-                else 0
             ),
             "participant_count": (
                 int(item.get("participant_count", 0))
@@ -931,8 +1007,10 @@ async def search_post(query: str) -> str:
             pg_conn.close()
             print(f"\n✅ 백터DB 검색 완료: {len(results_id)}개")
 
+            # pg의 유사도 검색 상위 공구들 검색
             sql = build_sql_query(conditions, results_id)
         else:
+            # 키워드 검색, 조건 검색
             sql = build_sql_query(conditions)
 
         print(conditions)

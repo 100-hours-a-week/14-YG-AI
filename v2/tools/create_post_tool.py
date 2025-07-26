@@ -34,25 +34,27 @@ def create_post(url: str) -> str:
         if response.status_code == 200:
             data = response.json()
             print(data)
+            wrap_data = f"CREATE_PRODUCT_START\n{data}\nCREATE_PRODUCT_END"
+            print(wrap_data)
 
             # 실제 생성된 공구 정보 추출
-            post_data = data.get("data", {})
+            # post_data = data.get("data", {})
 
-            result_message = f"""✅ 공구 게시글이 성공적으로 생성되었습니다!
+#             result_message = f"""✅ 공구 게시글이 성공적으로 생성되었습니다!
 
-📦 **상품명**: {post_data.get('product_name', 'N/A')}
-💰 **가격**: {post_data.get('total_price', 0):,}원 (총 {post_data.get('count', 0)}개)
-📝 **제목**: {post_data.get('title', 'N/A')}
+# 📦 **상품명**: {post_data.get('product_name', 'N/A')}
+# 💰 **가격**: {post_data.get('total_price', 0):,}원 (총 {post_data.get('count', 0)}개)
+# 📝 **제목**: {post_data.get('title', 'N/A')}
 
-📋 **상세 설명**:
-{post_data.get('summary', 'N/A')}
+# 📋 **상세 설명**:
+# {post_data.get('summary', 'N/A')}
 
-📅 **마감일**: {post_data.get('due_date', 'N/A')}
-📦 **픽업일**: {post_data.get('pickup_date', 'N/A')}
+# 📅 **마감일**: {post_data.get('due_date', 'N/A')}
+# 📦 **픽업일**: {post_data.get('pickup_date', 'N/A')}
 
-🎯 공구 참여를 원하시면 말씀해 주세요!"""
+# 🎯 공구 참여를 원하시면 말씀해 주세요!"""
 
-            return result_message
+            return wrap_data
 
         elif response.status_code == 401:
             print("❌ 인증 토큰이 만료되었습니다. 다시 로그인해 주세요.")
