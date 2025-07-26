@@ -27,7 +27,7 @@ except Exception as e:
 
 def _build_search_query(query: str, site_domain: str) -> str:
     """검색어에 "가격"을 추가하여 상품 상세 페이지 검색 확률을 높입니다."""
-    return f'"{query}" site:{site_domain}'
+    return f'"{query} 가격" site:{site_domain}'
 
 
 # ❗️❗️❗️ 핵심 수정 함수 ❗️❗️❗️
@@ -111,6 +111,7 @@ async def search_urls(query: str) -> str:
     예를 들어, 사용자가 '새우깡'을 원하면 query에 '새우깡'을 넣어 호출합니다.
     """
     if search_wrapper is None:
+        # 프론트엔드가 일반 텍스트로 처리할 수 있도록 단순 JSON 반환
         return json.dumps({"error": "Google Search API가 제대로 설정되지 않았습니다."})
 
     print(f"🤖 '{query}' 상품을 쿠팡에서 검색하여 메타데이터를 파싱합니다...")
@@ -128,7 +129,8 @@ async def search_urls(query: str) -> str:
 
         if not product_urls:
             print("❌ 유효한 '상품 상세 페이지' URL을 찾지 못했습니다.")
-            return json.dumps({"error": "관련 상품 상세 페이지를 찾을 수 없습니다."})
+            # 프론트엔드가 이해할 수 있는 일반 텍스트 오류 메시지
+            return "관련 상품을 찾지 못했어요. 더 구체적인 상품명으로 다시 시도해 주시겠어요?"
 
         final_items = []
         for url in product_urls:
@@ -140,18 +142,56 @@ async def search_urls(query: str) -> str:
                 if item:
                     final_items.append(item)
 
-        if final_items:
-            print(f"✅ 총 {len(final_items)}개의 상품 정보를 찾았습니다.")
-            return json.dumps(final_items, ensure_ascii=False, indent=2)
-        else:
+        if not final_items:
             print("❌ 유효 URL은 찾았으나, 메타데이터 파싱에 실패했습니다.")
-            return json.dumps(
-                {"error": "상품 정보 파싱에 실패했습니다.", "found_urls": product_urls}
+            return "상품 정보를 가져오는 데 실패했어요. 잠시 후 다시 시도해주세요."
+
+        # --- ★★★ 핵심 수정 부분 시작 ★★★ ---
+
+        print(
+            f"✅ 총 {len(final_items)}개의 상품 정보를 찾았습니다. 프론트엔드 형식으로 변환합니다."
+        )
+
+        # 1. 프론트엔드의 `createProductOptionsHTML` 함수가 요구하는 JSON 구조를 만듭니다.
+        options = []
+        for i, item in enumerate(final_items, 1):
+            # 가격을 "1,000원" 형식의 문자열로 포맷팅합니다. 가격이 없으면 "가격 문의"로 표시합니다.
+            price_str = (
+                f"{item.get('price', 0):,}원"
+                if item.get("price", 0) > 0
+                else "가격 문의"
             )
+
+            options.append(
+                {
+                    "id": i,
+                    "title": item.get("product_name", "이름 없는 상품"),
+                    "price": price_str,
+                    "url": item.get("url"),
+                }
+            )
+
+        response_data = {
+            "intro_text": f"쿠팡에서 '{query}'에 대한 상품을 찾았어요! 어떤 상품으로 공구를 만드시겠어요? 번호를 알려주세요.",
+            "options": options,
+            "outro_text": "※ 해당 정보는 정확하지 않을 수 있습니다. 반드시 확인 후 진행해주세요!",
+        }
+
+        # 2. JSON 객체를 문자열로 변환합니다.
+        json_payload = json.dumps(response_data, ensure_ascii=False)
+
+        # 3. 약속된 마커(PRODUCT_OPTIONS_START/END)로 감싸 최종 결과 문자열을 만듭니다.
+        final_output = f"PRODUCT_OPTIONS_START\n{json_payload}\nPRODUCT_OPTIONS_END"
+        print("도구: ", final_output)
+        return final_output
+
+        # --- ★★★ 핵심 수정 부분 끝 ★★★ ---
 
     except Exception as e:
         print(f"   - 💥 검색 중 오류 발생: {e}")
-        return json.dumps({"error": f"전체 검색 과정에서 오류가 발생했습니다: {e}"})
+        return json.dumps(
+            {"error": f"전체 검색 과정에서 오류가 발생했습니다: {str(e)}"}
+        )
 
 
 # --- 테스트 실행 코드 ---

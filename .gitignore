@@ -11,6 +11,9 @@ deft-observer-456807-c5-e9dda0532301.json
 v2/__pycache__
 
 v2/venv
+v2/venv2
+v2/static/ts_chatbot
+
 v1/venv-v1
 v1/venv
 v1/app/.env

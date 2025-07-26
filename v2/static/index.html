@@ -785,629 +785,243 @@
             </div>
         </div>
     </div>
-    <script>
+        <script>
+        // 전역 변수
         let sessionId = null;
         let isProcessing = false;
 
-        const renderer = new marked.Renderer();
-        // 링크(<a> 태그)를 생성하는 규칙을 우리가 직접 재정의합니다.
-            renderer.link = function(href, title, text) {
-            // 기본 a 태그를 생성하되,
-            // target="_blank" (새 탭에서 열기)와
-            // rel="noopener noreferrer" (보안 설정) 속성을 추가합니다.
-            return `<a target="_blank" rel="noopener noreferrer" href="${href}" title="${title || ''}">${text}</a>`;
-        };
-
-        // 페이지 로드시 초기화
-        window.onload = function() {
+        // 페이지가 모두 로드되면 실행
+        window.addEventListener('load', function() {
             sessionId = localStorage.getItem('chatSessionId') || generateSessionId();
             localStorage.setItem('chatSessionId', sessionId);
-            document.getElementById('sessionId').textContent = sessionId.substring(0, 8) + '...';
-            document.getElementById('currentTime').textContent = new Date().toLocaleTimeString();
             
-            // 엔터키 이벤트 리스너
-            document.getElementById('messageInput').addEventListener('keydown', function(e) {
+            const userInput = document.getElementById('user-input');
+            const sendButton = document.getElementById('send-button');
+
+            userInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     sendMessage();
                 }
             });
+            sendButton.addEventListener('click', () => sendMessage());
+            document.querySelector('.back-button').addEventListener('click', () => { window.history.back(); });
+            document.querySelector('.profile-button').addEventListener('click', () => { alert('프로필 페이지는 준비 중입니다.'); });
+            document.querySelector('.instagram-icon').addEventListener('click', () => { window.open('https://www.instagram.com/moongsan', '_blank'); });
+        });
 
-            // 텍스트 영역 자동 크기 조절
-            document.getElementById('messageInput').addEventListener('input', function() {
-                this.style.height = 'auto';
-                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-            });
-        };
+        // Marked.js 라이브러리 보안 설정 (XSS 방지)
+        marked.setOptions({ breaks: true, gfm: true, sanitize: true });
 
+        // 고유 세션 ID 생성 함수
         function generateSessionId() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
                 return v.toString(16);
             });
         }
 
-        function getCurrentTime() {
-            return new Date().toLocaleTimeString('ko-KR', {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        }
+        // =====================================================================
+        // ★★★ 구조화된 응답(카드)을 처리하는 모든 함수들 ★★★
+        // =====================================================================
 
-        // ✨ 앞뒤 텍스트 모두 처리하는 개선된 separateContent 함수
+        /** 1. 일반 텍스트와 카드 데이터를 분리하는 함수 */
         function separateContent(content) {
             const startMarker = 'STRUCTURED_RESULT_START';
             const endMarker = 'STRUCTURED_RESULT_END';
-            
             const startIndex = content.indexOf(startMarker);
             const endIndex = content.indexOf(endMarker);
-            
             if (startIndex === -1 || endIndex === -1) {
-                // 구조화된 결과가 없으면 전체를 텍스트로 처리
-                return {
-                    textPart: content.trim(),
-                    structuredPart: null
-                };
+                return { textPart: content.trim(), structuredPart: null };
             }
-            
-            // 구조화된 결과 앞의 텍스트 추출
             const beforeText = content.substring(0, startIndex).trim();
-            
-            // 구조화된 결과 부분 추출 (정확한 범위만)
             const structuredPart = content.substring(startIndex, endIndex + endMarker.length);
-            
-            // 구조화된 결과 뒤의 텍스트 추출
             const afterText = content.substring(endIndex + endMarker.length).trim();
-            
-            // 앞뒤 텍스트를 합치기 (둘 다 있으면 줄바꿈으로 구분)
-            const combinedText = [beforeText, afterText]
-                .filter(text => text && text.length > 0)
-                .join('\n\n');
-            
-            console.log('📝 앞 텍스트:', beforeText);
-            console.log('📝 뒤 텍스트:', afterText);
-            console.log('📝 합친 텍스트:', combinedText);
-            
-            return {
-                textPart: combinedText || null,
-                structuredPart: structuredPart
-            };
+            const combinedText = [beforeText, afterText].filter(text => text).join('\n\n');
+            return { textPart: combinedText || null, structuredPart: structuredPart };
         }
 
-        // ✨ 카드 먼저, 텍스트 나중에 표시하는 함수
-        function createMixedContentHTML(textPart, structuredPart, agent, timeDisplay) {
-            console.log('🎨 HTML 생성 시작 (카드 우선)');
-            
-            let html = '';
-            
-            // 1. 구조화된 결과(카드) 먼저 표시
-            if (structuredPart) {
-                const structuredContent = parseStructuredResult(structuredPart);
-                if (structuredContent) {
-                    html += structuredContent;
-                    console.log('✅ 구조화된 카드 먼저 추가됨');
-                }
-            }
-            
-            // 2. 텍스트 부분을 카드 아래에 표시
-            if (textPart) {
-                const formattedText = textPart.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
-                // 카드와 텍스트 사이에 간격 추가
-                if (structuredPart) {
-                    html += '<div style="margin: 15px 0;"></div>';
-                }
-                html += `<div class="message-content">${formattedText}</div>`;
-                console.log('✅ 텍스트 부분 나중에 추가됨');
-            }
-            
-            // 3. 메시지 정보
-            const agentBadge = agent ? `<span class="agent-badge ${agent}">${getAgentDisplayName(agent)}</span>` : '';
-            html += `
-                <div class="message-info" style="margin-top: 15px;">
-                    ${agentBadge}
-                    <span>${timeDisplay}</span>
-                </div>
-            `;
-            
-            console.log('🎨 HTML 생성 완료 (카드 → 텍스트 순서)');
-            return html;
-        }
-        // 3. 테스트용 함수 (콘솔에서 직접 테스트 가능)
-        function testMixedContent() {
-            console.log('🧪 혼합 컨텐츠 테스트 시작');
-            
-            const testMessage = `다음은 이클립스와 관련된 공구 검색 결과입니다
-        STRUCTURED_RESULT_START
-        {
-        "search_type": "🎯 키워드 검색",
-        "total_count": 2,
-        "results": []
-        }
-        STRUCTURED_RESULT_END
-        참여하고 싶으신 공구가 있으신가요?`;
-
-            const result = separateContent(testMessage);
-            console.log('🧪 테스트 결과:', result);
-            
-            const html = createMixedContentHTML(result.textPart, result.structuredPart, 'search', '12:34');
-            console.log('🧪 생성된 HTML:', html);
-            
-            return result;
-        }
-        // ❗️ 2. marked.js 라이브러리 설정 (보안 강화) ❗️
-        // 이 설정은 AI가 생성한 텍스트에 포함될 수 있는 악성 스크립트를 방지합니다. (매우 중요)
-        marked.setOptions({
-            // renderer: renderer,
-            breaks: true,   // 엔터(줄바꿈)를 <br> 태그로 변환
-            gfm: true,      // GitHub Flavored Markdown 활성화
-            sanitize: true  // HTML 태그를 무시하여 XSS 공격 방지
-        });
-
-        // ✨ 개선된 addMessage 함수 - 혼합 컨텐츠 지원
-        // ❗️ 3. addMessage 함수를 marked.js 사용하도록 수정 ❗️
-        function addMessage(content, type, agent = null, timestamp = null) {
-            const messagesContainer = document.getElementById('chatMessages');
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${type}`;
-            
-            const agentBadge = agent ? `<span class="agent-badge ${agent}">${getAgentDisplayName(agent)}</span>` : '';
-            const timeDisplay = timestamp || getCurrentTime();
-            
-            // 기존의 parseSimpleMarkdown 함수는 더 이상 필요 없습니다.
-            // ⭐️ 모든 텍스트 컨텐츠를 marked.parse()로 처리합니다. ⭐️
-            const formattedContent = marked.parse(content);
-            
-            if (type === 'ai' && content.includes('STRUCTURED_RESULT_START')) {
-                const { textPart, structuredPart } = separateContent(content);
-                // AI 응답의 텍스트 부분만 마크다운으로 파싱
-                const parsedTextPart = textPart ? marked.parse(textPart) : null;
-                const mixedHTML = createMixedContentHTML(parsedTextPart, structuredPart, agent, timeDisplay);
-                messageDiv.innerHTML = mixedHTML;
-            } 
-            else {
-                // 일반 메시지는 전체를 마크다운으로 파싱
-                messageDiv.innerHTML = `
-                    <div class="message-content">${formattedContent}</div>
-                    <div class="message-info">
-                        ${agentBadge}
-                        <span>${timeDisplay}</span>
-                    </div>
-                `;
-            }
-            
-            const typingIndicator = document.getElementById('typingIndicator');
-            messagesContainer.insertBefore(messageDiv, typingIndicator);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-
-        // ✨ 개선된 parseStructuredResult 함수
-        function parseStructuredResult(content) {
+        /** 2. 카드 데이터(JSON)를 파싱하여 HTML로 만드는 과정을 시작하는 함수 */
+        function parseStructuredResult(structuredContent) {
             try {
-                console.log('🔍 구조화된 결과 파싱 시도');
-                
-                const startMarker = 'STRUCTURED_RESULT_START\n';
-                const endMarker = '\nSTRUCTURED_RESULT_END';
-                
-                const startIndex = content.indexOf(startMarker);
-                const endIndex = content.indexOf(endMarker);
-                
-                console.log('📍 마커 위치:', { startIndex, endIndex });
-                
-                if (startIndex === -1 || endIndex === -1) {
-                    console.log('❌ 구조화된 결과 마커를 찾을 수 없음');
-                    return null;
-                }
-                
-                const jsonStr = content.substring(startIndex + startMarker.length, endIndex);
-                console.log('📊 추출된 JSON 길이:', jsonStr.length);
-                
-                // JSON 파싱 전 기본 검증
-                if (!jsonStr.trim()) {
-                    console.log('❌ 빈 JSON 문자열');
-                    return null;
-                }
-                
+                const startMarker = 'STRUCTURED_RESULT_START';
+                const endMarker = 'STRUCTURED_RESULT_END';
+                const startIndex = structuredContent.indexOf(startMarker) + startMarker.length;
+                const endIndex = structuredContent.indexOf(endMarker);
+                const jsonStr = structuredContent.substring(startIndex, endIndex).trim();
                 const data = JSON.parse(jsonStr);
-                console.log('✅ JSON 파싱 성공, 결과 개수:', data.results?.length || 0);
-                
                 return createSearchResultsHTML(data);
             } catch (error) {
-                console.error('❌ 구조화된 결과 파싱 오류:', error);
-                console.log('📄 파싱 시도한 컨텐츠:', content.substring(0, 200) + '...');
-                return null;
+                console.error('구조화된 결과 파싱 오류:', error);
+                return '<div class="bot-message">카드 정보를 불러오는 데 실패했습니다.</div>';
             }
         }
+
+        /** 3. 파싱된 JSON 데이터를 기반으로 최종 카드 HTML을 생성하는 함수 */
         function createSearchResultsHTML(data) {
             if (!data.results || data.results.length === 0) {
-                return `
-                    <div class="search-results">
-                        <div class="search-header">
-                            <h3>${data.search_type}</h3>
-                            <div class="search-meta">검색 결과 없음</div>
-                        </div>
-                        <p>검색 조건에 맞는 공구를 찾을 수 없습니다.</p>
-                    </div>
-                `;
+                return `<div class="bot-message">${data.search_type || '검색 결과'}: 해당하는 공구를 찾지 못했습니다.</div>`;
             }
-
             const cardsHTML = data.results.map(item => {
-                const progressPercent = ((item.total_amount - item.left_amount) / item.total_amount * 100).toFixed(1);
-                const isAlmostFull = progressPercent > 80;
-                
-                // 🔗 상품 ID에서 GB_ 제거하여 실제 ID 추출
+                const progressPercent = item.total_amount ? ((item.total_amount - item.left_amount) / item.total_amount * 100).toFixed(1) : 0;
                 const productId = item.id.replace('GB_', '');
                 const productUrl = `https://moongsan.com/products/${productId}`;
+                const statusClass = item.post_status ? item.post_status.toLowerCase() : 'closed';
                 
                 return `
-                    <div class="group-buy-card" onclick="openProductPage('${productUrl}')" style="cursor: pointer;">
+                    <div class="group-buy-card" onclick="openProductPage('${productUrl}')">
                         <div class="card-header">
                             <h4 class="card-title">${item.title}</h4>
-                            <div class="status-badge ${item.post_status.toLowerCase()}">${getStatusText(item.post_status)}</div>
+                            <div class="status-badge ${statusClass}">${getStatusText(item.post_status)}</div>
                         </div>
-                        
-                        <div class="product-name">${item.product_name}</div>
-                        
-                        <div class="price-section">
-                            <div class="unit-price">개당 ${item.unit_price.toLocaleString()}원</div>
-                            <div class="total-price">총 ${item.total_price.toLocaleString()}원 (${item.total_amount}개)</div>
-                        </div>
-                        
+                        <div class="product-name">${item.product_name || ''}</div>
                         <div class="quantity-bar">
                             <div class="quantity-info">
                                 <span>참여 현황</span>
-                                <span>${item.total_amount - item.left_amount}/${item.total_amount} (${progressPercent}%)</span>
+                                <span>${item.total_amount - item.left_amount} / ${item.total_amount}개</span>
                             </div>
                             <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${progressPercent}%"></div>
+                                <div class="progress-fill" style="width: ${progressPercent}%;"></div>
                             </div>
                         </div>
-                        
-                        <div class="card-stats">
-                            <div class="stat-item">
-                                <div class="stat-label">주문 단위</div>
-                                <div class="stat-value">${item.unit_amount}개</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-label">잔여 수량</div>
-                                <div class="stat-value">${item.left_amount}개</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-label">참여자 수</div>
-                                <div class="stat-value">${item.participant_count}명</div>
-                            </div>
-                        </div>
-                        <div class="card-dates">
-                            <div class="date-item">
-                                <div class="date-label">📅 마감일</div>
-                                <div class="date-value">${formatDate(item.due_date)}</div>
-                            </div>
-                            <div class="date-item">
-                                <div class="date-label">📦 픽업일</div>
-                                <div class="date-value">${formatDate(item.pickup_date)}</div>
-                            </div>
-                        </div>
-                        
-                        <!-- 클릭 힌트 추가 -->
-                        <div class="click-hint">
-                            <span>클릭하여 상세 보기 →</span>
-                        </div>
-                    </div>
-                `;
+                    </div>`;
             }).join('');
 
-            // 스크롤 네비게이션 ID 생성
-            const scrollId = `scroll-${Date.now()}`;
-
             return `
-                <div class="search-results">
+                <div class="search-results-container">
                     <div class="search-header">
-                        <h3>${data.search_type}</h3>
-                        <div class="search-meta">
-                            ${data.total_count}개 결과
-                            ${data.total_count > 2 ? '<span class="scroll-hint">← 좌우로 스크롤 →</span>' : ''}
-                        </div>
+                        <h3>${data.search_type || '공구 검색 결과'} (${data.total_count}개)</h3>
                     </div>
-                    ${data.total_count > 2 ? `
-                        <div class="scroll-nav">
-                            <button class="scroll-btn scroll-left" onclick="scrollCards('${scrollId}', -1)">◀</button>
-                            <button class="scroll-btn scroll-right" onclick="scrollCards('${scrollId}', 1)">▶</button>
-                        </div>
-                    ` : ''}
-                    <div class="group-buy-grid" id="${scrollId}">
-                        ${cardsHTML}
-                    </div>
-                    ${data.total_count > 2 ? '<div class="scroll-indicator">좌우로 스크롤하여 더 많은 공구를 확인하세요</div>' : ''}
-                </div>
-            `;
+                    <div class="group-buy-grid">${cardsHTML}</div>
+                </div>`;
         }
-        // 📱 카드 스크롤 함수
-        function scrollCards(scrollId, direction) {
-            const container = document.getElementById(scrollId);
-            if (container) {
-                const scrollAmount = 250; // 한 번에 스크롤할 거리 (카드 크기에 맞게 조정)
-                container.scrollBy({
-                    left: direction * scrollAmount,
-                    behavior: 'smooth'
-                });
-            }
-        }
-
-        // 🔗 상품 페이지 열기 함수
-        function openProductPage(url) {
-            // 새 탭에서 열기
-            window.open(url, '_blank');
-            
-            // 토스트 알림 (선택사항)
-            showToast(`상품 페이지로 이동합니다`, 'info');
-        }
-
-        // 🍞 토스트 알림 함수 추가
-        function showToast(message, type = 'info') {
-            const toast = document.createElement('div');
-            toast.className = `toast toast-${type}`;
-            toast.textContent = message;
-            
-            document.body.appendChild(toast);
-            
-            setTimeout(() => {
-                toast.classList.add('show');
-            }, 100);
-            
-            setTimeout(() => {
-                toast.classList.remove('show');
-                setTimeout(() => {
-                    if (document.body.contains(toast)) {
-                        document.body.removeChild(toast);
-                    }
-                }, 300);
-            }, 2000);
-        }
-
-        function getStatusText(status) {
-            const statusMap = {
-                'OPEN': '진행중',
-                'CLOSED': '마감',
-                'ENDED': '종료'
-            };
-            return statusMap[status] || status;
-        }
-
+        
+        /** 4. 카드 관련 기타 보조 함수들 */
+        function getStatusText(status) { return { 'OPEN': '진행중', 'CLOSED': '마감', 'ENDED': '종료' }[status] || status; }
         function formatDate(dateStr) {
             if (!dateStr) return '-';
-            const date = new Date(dateStr);
-            return date.toLocaleDateString('ko-KR', {
-                month: 'short',
-                day: 'numeric'
-            });
+            return new Date(dateStr).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
         }
+        function openProductPage(url) { window.open(url, '_blank'); }
 
-        function getAgentDisplayName(agent) {
-            const agentNames = {
-                'chat': '💬 Chat',
-                'chat_agent': '💬 Chat',        // 기존 호환성
-                'search': '🔍 Search', 
-                'search_agent': '🔍 Search',    // 기존 호환성  
-                'url_search': '🎯 url_search',
-                'url_search_agent': '🎯 url_search',  // 기존 호환성
-                'create': '🎯 Create',
-                'create_agent': '🎯 Create',  // 기존 호환성
-                'system': '⚙️ System'
-            };
-            return agentNames[agent] || agent;
-        }
-        function showTypingIndicator() {
-            document.getElementById('typingIndicator').style.display = 'block';
-            const messagesContainer = document.getElementById('chatMessages');
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
 
-        function hideTypingIndicator() {
-            document.getElementById('typingIndicator').style.display = 'none';
-        }
+        // =====================================================================
+        // ★★★ 메시지 송수신 및 화면 표시를 위한 핵심 함수들 ★★★
+        // =====================================================================
 
-        function showError(message) {
-            const messagesContainer = document.getElementById('chatMessages');
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'error-message';
-            errorDiv.textContent = `❌ 오류: ${message}`;
+        /**
+         * (핵심) 채팅창에 메시지를 동적으로 추가하는 함수 (카드 로직 통합)
+         */
+        function addMessage(content, type) {
+            const messagesContainer = document.getElementById('chat-messages');
+            const messageWrapper = document.createElement('div');
             
-            const typingIndicator = document.getElementById('typingIndicator');
-            messagesContainer.insertBefore(errorDiv, typingIndicator);
+            if (type === 'user') {
+                messageWrapper.className = 'user-message-container';
+                messageWrapper.innerHTML = `<div class="user-message">${content}</div>`;
+            } else { // 'bot'
+                messageWrapper.className = 'bot-message-container';
+                
+                const { textPart, structuredPart } = separateContent(content);
+                let finalHTML = '';
+
+                // 카드 데이터가 있으면 카드 HTML을 먼저 추가
+                if (structuredPart) {
+                    finalHTML += parseStructuredResult(structuredPart);
+                }
+                // 일반 텍스트 데이터가 있으면 메시지 버블로 감싸서 추가
+                if (textPart) {
+                    finalHTML += `<div class="bot-message">${marked.parse(textPart)}</div>`;
+                }
+                // 만약 아무 내용도 없으면 오류 방지를 위해 원본 내용 표시
+                if (!finalHTML) {
+                    finalHTML = `<div class="bot-message">${marked.parse(content)}</div>`;
+                }
+                messageWrapper.innerHTML = finalHTML;
+            }
+            
+            messagesContainer.appendChild(messageWrapper);
+            // 항상 최신 메시지가 보이도록 스크롤
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
+        /**
+         * (핵심) 메시지 전송 및 수신을 처리하는 메인 함수
+         */
         async function sendMessage() {
             if (isProcessing) return;
-            
-            const messageInput = document.getElementById('messageInput');
-            const sendBtn = document.getElementById('sendBtn');
+
+            const titleSection = document.getElementById('titleSection');
+            const messageInput = document.getElementById('user-input');
+            const sendBtn = document.getElementById('send-button');
             const message = messageInput.value.trim();
-            
 
             if (!message) return;
             
-            //const userInfo = getCurrentUserInfo();  실제 유저 정보 전달
-            const userInfo = {
-                user_id: 13,  // 실제로는 로그인 정보에서 가져옴
-                user_name: "테스트유저",  // 실제로는 로그인 정보에서 가져옴
-            };
-            const requestBody = {
-                message: message,
-                session_id: sessionId,
-                user_id: userInfo.user_id,      // 추가
-                user_name: userInfo.user_name,   // 추가
-            };
-            
-            // UI 상태 업데이트
-            isProcessing = true;
-            sendBtn.disabled = true;
-            sendBtn.textContent = '전송 중...';
-            
-            // 사용자 메시지 표시
             addMessage(message, 'user');
-            
-            // 입력 필드 초기화
+            if (titleSection && !titleSection.classList.contains('hidden')) {
+                titleSection.classList.add('hidden');
+            }
             messageInput.value = '';
-            messageInput.style.height = 'auto';
-            
-            // 타이핑 인디케이터 표시
-            showTypingIndicator();
-            
+
+            let fullAiResponse = '';
             try {
-                // SSE 연결 설정
+                isProcessing = true;
+                sendBtn.disabled = true;
+                messageInput.disabled = true;
+
+                const requestBody = {
+                    message: message,
+                    session_id: sessionId,
+                    user_id: 13, // 실제로는 로그인 정보에서 가져와야 함
+                    user_name: "테스트유저"
+                };
+
                 const response = await fetch('/chat/stream', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'text/event-stream'
-                    },
-                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
                     body: JSON.stringify(requestBody)
                 });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
+
+                if (!response.ok) throw new Error(`서버 응답 오류: ${response.status}`);
                 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 
                 while (true) {
                     const { done, value } = await reader.read();
-                    
                     if (done) break;
-                    
+
                     const chunk = decoder.decode(value, { stream: true });
                     const lines = chunk.split('\n');
-                    
+
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
-                            try {
-                                const data = JSON.parse(line.substring(6));
-                                handleSSEMessage(data);
-                            } catch (e) {
-                                console.error('JSON 파싱 오류:', e, 'Line:', line);
+                            const data = JSON.parse(line.substring(6));
+                            if(data.type === 'ai_response') {
+                            fullAiResponse += data.content; // 응답 내용을 계속 이어붙임
+                            }
+                            if(data.type === 'error') {
+                                throw new Error(data.content);
                             }
                         }
                     }
                 }
-                
+                // 루프가 끝나면(전송 완료) 전체 응답을 한 번에 화면에 표시
+                if(fullAiResponse) {
+                    addMessage(fullAiResponse, 'bot');
+                }
+
             } catch (error) {
                 console.error('메시지 전송 오류:', error);
-                hideTypingIndicator();
-                showError(error.message);
+                addMessage(`오류가 발생했습니다: ${error.message}`, 'bot');
             } finally {
-                // UI 상태 복원
                 isProcessing = false;
                 sendBtn.disabled = false;
-                sendBtn.textContent = '전송';
-                hideTypingIndicator();
+                messageInput.disabled = false;
+                messageInput.focus();
             }
         }
-
-        function handleSSEMessage(data) {
-            console.log('SSE 메시지 수신:', data);
-            console.log('🤖 에이전트:', data.agent);
-            
-            switch (data.type) {
-                case 'user_message':
-                    // 사용자 메시지는 이미 표시했으므로 무시
-                    break;
-                    
-                case 'processing':
-                    // 처리 중 메시지 (타이핑 인디케이터로 표시 중)
-                    break;
-                    
-                case 'ai_response':
-                    hideTypingIndicator();
-                    addMessage(data.content, 'ai', data.agent, data.timestamp);
-                    break;
-                    
-                case 'complete':
-                    hideTypingIndicator();
-                    break;
-                    
-                case 'error':
-                    hideTypingIndicator();
-                    showError(data.content);
-                    break;
-                    
-                default:
-                    console.log('알 수 없는 메시지 타입:', data.type);
-            }
-        }
-
-        // 세션 관리 함수들
-        function clearSession() {
-            if (confirm('현재 대화를 모두 삭제하시겠습니까?')) {
-                fetch(`/chat/session/${sessionId}`, {
-                    method: 'DELETE'
-                }).then(() => {
-                    // 새 세션 ID 생성
-                    sessionId = generateSessionId();
-                    localStorage.setItem('chatSessionId', sessionId);
-                    document.getElementById('sessionId').textContent = sessionId.substring(0, 8) + '...';
-                    
-                    // 채팅 메시지 초기화
-                    const messagesContainer = document.getElementById('chatMessages');
-                    messagesContainer.innerHTML = `
-                        <div class="message ai">
-                            <div class="message-content">
-                                새로운 대화가 시작되었습니다! 무엇을 도와드릴까요?
-                            </div>
-                            <div class="message-info">
-                                <span class="agent-badge system">system</span>
-                                <span>${getCurrentTime()}</span>
-                            </div>
-                        </div>
-                        <div class="typing-indicator" id="typingIndicator">
-                            <div class="typing-dots">
-                                <div class="typing-dot"></div>
-                                <div class="typing-dot"></div>
-                                <div class="typing-dot"></div>
-                            </div>
-                        </div>
-                    `;
-                }).catch(error => {
-                    console.error('세션 삭제 오류:', error);
-                });
-            }
-        }
-
-        // 키보드 단축키
-        document.addEventListener('keydown', function(e) {
-            // Ctrl + K: 세션 초기화
-            if (e.ctrlKey && e.key === 'k') {
-                e.preventDefault();
-                clearSession();
-            }
-            
-            // Ctrl + Enter: 메시지 전송
-            if (e.ctrlKey && e.key === 'Enter') {
-                e.preventDefault();
-                sendMessage();
-            }
-        });
-
-        // 연결 상태 모니터링
-        function checkConnection() {
-            fetch('/health')
-                .then(response => {
-                    if (response.ok) {
-                        document.querySelector('.status-indicator').style.background = '#4CAF50';
-                    } else {
-                        document.querySelector('.status-indicator').style.background = '#f44336';
-                    }
-                })
-                .catch(() => {
-                    document.querySelector('.status-indicator').style.background = '#f44336';
-                });
-        }
-        
-
-        // 주기적으로 연결 상태 확인
-        setInterval(checkConnection, 30000);
-
     </script>
 </body>
 </html>

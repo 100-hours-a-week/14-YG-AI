@@ -11,6 +11,16 @@ from config import settings
 from api import include_all_routers
 from workflow import create_supervisor_workflow, initialize_workflow_system
 
+import nest_asyncio
+from pyngrok import ngrok
+import os
+
+# ngrok 설정 (개발 환경에서만 사용)
+# ngrok_auth_token = os.getenv("NGROK_AUTH_TOKEN")
+# ngrok.set_auth_token(ngrok_auth_token)
+# public_url = ngrok.connect(3100)
+# print(f"🔗 Ngrok URL: {public_url}")
+
 # 로깅 설정
 logging.basicConfig(level=settings.logging.level, format=settings.logging.format)
 logger = logging.getLogger(__name__)
@@ -52,7 +62,7 @@ def get_supervisor_app():
 @app.get("/")
 async def root():
     """루트 경로에서 index.html 반환"""
-    return FileResponse("static/index.html")
+    return FileResponse("static/index2.html")
 
 
 @app.on_event("startup")
@@ -108,13 +118,35 @@ async def simple_health(supervisor_app=Depends(get_supervisor_app)):
 # API 라우터 등록
 include_all_routers(app)
 
+# 비동기 환경 설정
+# nest_asyncio.apply()
+
+# # 기존 ngrok 터널이 있다면 종료
+# try:
+#     ngrok.kill()
+# except:
+#     pass
+
+# # ngrok 터널 생성 및 공개 URL 출력
+# public_url = ngrok.connect(8000)
+# print(f"✅ 스트리밍 채팅 웹 페이지가 준비되었습니다!")
+# print(f"💬 채팅 API: {public_url}/chat/completions")
+# FastAPI 서버 실행
+
+
 if __name__ == "__main__":
     import uvicorn
 
+    # uvicorn.run(
+    #     app,
+    #     host="0.0.0.0",
+    #     port=8000,
+    #     # reload=True,
+    # )
     uvicorn.run(
         "local:app",  # 문자열로 모듈:변수 형태
         host="0.0.0.0",
         port=3100,
-        reload=True,
+        # reload=True,
         log_level="debug",
     )
