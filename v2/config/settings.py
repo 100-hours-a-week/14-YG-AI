@@ -171,7 +171,7 @@ class ServerSettings(BaseSettings):
     host: str = os.getenv("FASTAPI_HOST")
     port: int = os.getenv("FASTAPI_PORT")
     reload: bool = False
-    debug: bool = None
+    debug: bool = False
 
     # CORS 설정
     cors_origins: List[str] = ["*"]

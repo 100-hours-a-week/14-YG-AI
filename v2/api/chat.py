@@ -44,8 +44,9 @@ class ChatMessage(BaseModel):
 
     message: str
     session_id: Optional[str] = None
-    user_id: int
-    user_name: str
+    # user_id: int
+    # user_name: str # user_name-> nickname으로 긴급 변경
+    nickname: str
 
     @field_validator("message")
     def validate_message(cls, v):
@@ -61,17 +62,17 @@ class ChatMessage(BaseModel):
             return None
         return str(v).strip() if str(v).strip() else None
 
-    @field_validator("user_name")
+    @field_validator("nickname")
     def validate_user_name(cls, v):
         if not v or not v.strip():
             raise ValueError("사용자 이름은 필수입니다")
         return v.strip()
 
-    @field_validator("user_id")
-    def validate_user_id(cls, v):
-        if not v or v <= 0:
-            raise ValueError("유효한 사용자 ID가 필요합니다")
-        return v
+    # @field_validator("user_id")
+    # def validate_user_id(cls, v):
+    #     if not v or v <= 0:
+    #         raise ValueError("유효한 사용자 ID가 필요합니다")
+    #     return v
 
 
 from core.session import UserContext
@@ -80,7 +81,7 @@ from core.session import UserContext
 async def process_message_stream(
     message: str,
     session_id: str,
-    user_id: int,
+    # user_id: int,
     user_name: str,
     supervisor_app,
     access_token: str,
@@ -91,7 +92,7 @@ async def process_message_stream(
     Args:
         message: 사용자 메시지
         session_id: 세션 ID
-        user_id: 사용자 ID (백엔드에서 검증됨)
+        user_id: 사용자 ID (백엔드에서 검증됨) # 제거
         user_name: 사용자 이름 (백엔드에서 검증됨)
         supervisor_app: 워크플로우 앱
         access_token : 사용자 인증 토큰
@@ -99,7 +100,7 @@ async def process_message_stream(
     Yields:
         str: SSE 형식의 응답 데이터
     """
-    print(session_id, user_id, user_name, message, access_token, "세션아이디 테스트")
+    print(session_id, user_name, message, access_token, "세션아이디 테스트")
     if supervisor_app is None:
         yield await format_sse_data(
             format_error_response("Supervisor가 초기화되지 않았습니다.")
@@ -108,7 +109,7 @@ async def process_message_stream(
 
     # 사용자 컨텍스트 설정
     with UserContext(
-        user_id=user_id,
+        # user_id=user_id,
         user_name=user_name,
         access_token=access_token,
         session_id=session_id,
@@ -142,11 +143,9 @@ async def process_message_stream(
             #     for msg in conversation_history
             #     if hasattr(msg, "type") and msg.type == "human"
             # ]
-            if (
-                len(conversation_history) == 0 and user_id and user_name
-            ):  # 첫 대화 + 유저 정보 있음
+            if len(conversation_history) == 0 and user_name:  # 첫 대화 + 유저 정보 있음
                 system_message = AIMessage(
-                    content=f"💡 시스템: 현재 대화 중인 사용자는 {user_name}님 (ID: {user_id})입니다. 대화에 참고해 주세요",
+                    content=f"💡 시스템: 현재 대화 중인 사용자는 {user_name}님 입니다. 대화에 참고해 주세요",
                     additional_kwargs={"agent": "system", "hidden": True},
                 )
                 # 대화 기록 맨 앞에 추가 (첫 번째 사용자 메시지 다음)
@@ -160,14 +159,16 @@ async def process_message_stream(
             add_message_to_session(session_id, user_message)
             conversation_history = get_session_data(session_id)
 
-            yield await format_sse_data(format_processing_message("분석 중..."))
+            yield await format_sse_data(
+                format_processing_message("분석 중...", session_id)
+            )
 
             with langfuse.start_as_current_span(
                 name="chat-message",
                 input={
                     "message": message,
                     "session_id": session_id,
-                    "user_id": user_id,
+                    # "user_id": user_id,
                     "user_name": user_name,
                 },
             ) as span:
@@ -191,7 +192,7 @@ async def process_message_stream(
                     "next_agent": "supervisor",
                     "current_task": None,
                     "session_id": session_id,
-                    "user_id": user_id,
+                    # "user_id": user_id,
                     "user_name": user_name,
                     "access_token": access_token,
                 }
@@ -277,10 +278,11 @@ async def process_message_stream(
                                         content=response_dict["content"],
                                         agent=response_dict["agent"],
                                         timestamp=response_dict["timestamp"],
+                                        session_id=session_id,
                                     )
                                 )
 
-            yield await format_sse_data(format_completion_message())
+            yield await format_sse_data(format_completion_message(session_id))
 
             # LangFuse 플러시
             langfuse.flush()
@@ -339,7 +341,7 @@ async def chat_stream_endpoint(
     스트리밍 방식 채팅 엔드포인트
 
     Args:
-        chat_message: 채팅 메시지 (message, session_id)
+        chat_message: 채팅 메시지 (message, session_id, user_name)
         access_token: 사용자 인증 토큰 (쿠키에서 가져옴, httpOnly 방식)
 
     Returns:
@@ -354,25 +356,25 @@ async def chat_stream_endpoint(
 
     session_id = chat_message.session_id or str(uuid.uuid4())
 
-    user_id = chat_message.user_id
-    user_name = chat_message.user_name
+    # user_id = chat_message.user_id
+    user_name = chat_message.nickname  # user_name -> nickname으로 긴급 변경
 
     # 디버깅 로그 추가
     print(f"🔍 디버깅:")
     print(f"  - 받은 chat_message: {chat_message}")
-    print(f"  - user_id: {user_id}")
+    # print(f"  - user_id: {user_id}")
     print(f"  - user_name: {user_name}")
     print(f"  - access_token: {access_token}")
     print(f"  - access_token type: {type(access_token)}")
 
-    if not user_id or not user_name:
+    if not user_name:
         raise HTTPException(status_code=400, detail="사용자 정보가 없습니다.")
 
     return StreamingResponse(
         process_message_stream(
             chat_message.message,
             session_id,
-            user_id,
+            # user_id,
             user_name,
             supervisor_app,
             access_token,

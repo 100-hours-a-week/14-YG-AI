@@ -27,11 +27,9 @@ _user_context: ContextVar[Optional[Dict[str, Any]]] = ContextVar(
 class UserContext:
     """사용자 인증 컨텍스트 매니저"""
 
-    def __init__(
-        self, user_id: int, user_name: str, access_token: str, session_id: str
-    ):
+    def __init__(self, user_name: str, access_token: str, session_id: str):
         self.context_data = {
-            "user_id": user_id,
+            # "user_id": user_id,
             "user_name": user_name,
             "access_token": access_token,
             "session_id": session_id,
@@ -168,6 +166,7 @@ def get_all_session_stats() -> Dict[str, Any]:
         "total_messages": total_messages,
         "average_messages_per_session": round(average_messages, 2),
     }
+
 
 def get_session_info(session_id: str) -> Dict[str, Any]:
     """

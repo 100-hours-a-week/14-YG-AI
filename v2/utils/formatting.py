@@ -66,7 +66,7 @@ def format_error_response(error_message: str, error_type: str = "error") -> dict
 
 
 def format_ai_response(
-    content: str, agent: str, timestamp: Optional[str] = None
+    content: str, agent: str, timestamp: Optional[str] = None, session_id: str = None
 ) -> dict:
     """
     AI 응답 메시지 포맷팅
@@ -79,15 +79,22 @@ def format_ai_response(
     Returns:
         dict: AI 응답 딕셔너리
     """
-    return {
+    response = {
         "type": "ai_response",
         "content": content,
         "agent": agent,
-        "timestamp": timestamp or datetime.now().isoformat(),
+        "timestamp": timestamp,
     }
+    # session_id가 있으면 추가
+    if session_id:
+        response["session_id"] = session_id
+
+    return response
 
 
-def format_processing_message(message: str = "분석 중...") -> dict:
+def format_processing_message(
+    message: str = "분석 중...", session_id: str = None
+) -> dict:
     """
     처리 중 메시지 포맷팅
 
@@ -97,24 +104,35 @@ def format_processing_message(message: str = "분석 중...") -> dict:
     Returns:
         dict: 처리 중 메시지 딕셔너리
     """
-    return {
+    response = {
         "type": "processing",
         "content": message,
         "timestamp": datetime.now().isoformat(),
     }
 
+    if session_id:
+        response["session_id"] = session_id
 
-def format_completion_message() -> dict:
+    return response
+
+
+def format_completion_message(session_id: str = None) -> dict:
     """
     완료 메시지 포맷팅
 
     Returns:
         dict: 완료 메시지 딕셔너리
     """
-    return {
-        "type": "complete",
+    response = {
+        "type": "completion",
+        "content": "응답 완료",
         "timestamp": datetime.now().isoformat(),
     }
+
+    if session_id:
+        response["session_id"] = session_id
+
+    return response
 
 
 def format_chat_history(messages: list) -> dict:

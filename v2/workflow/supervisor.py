@@ -25,7 +25,7 @@ class WorkflowState(TypedDict):
     next_agent: str
     current_task: Optional[str]
     session_id: Optional[str]
-    user_id: Optional[str]
+    # user_id: Optional[str]
     user_name: Optional[str]  # ✅ 추가
     access_token: Optional[str]
 
@@ -333,7 +333,7 @@ def validate_workflow_state(state: WorkflowState) -> dict:
 
 
 def create_initial_state(
-    messages: List[BaseMessage], session_id: str = None, user_id: str = None
+    messages: List[BaseMessage], session_id: str = None #user_id: str = None
 ) -> WorkflowState:
     """
     초기 워크플로우 상태 생성
@@ -341,7 +341,7 @@ def create_initial_state(
     Args:
         messages: 초기 메시지 리스트
         session_id: 세션 ID
-        user_id: 사용자 ID
+        user_id: 사용자 ID # 제거
 
     Returns:
         WorkflowState: 초기 상태
@@ -350,7 +350,7 @@ def create_initial_state(
         "messages": messages,
         "next_agent": "supervisor",
         "session_id": session_id,
-        "user_id": user_id,
+        # "user_id": user_id,
     }
 
 
@@ -394,7 +394,7 @@ if __name__ == "__main__":
             initial_state = create_initial_state(
                 messages=[HumanMessage(content=test_message)],
                 session_id="test-session",
-                user_id="test-user",
+                # user_id="test-user",
             )
 
             print(f"📝 테스트 메시지: '{test_message}'")
