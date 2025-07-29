@@ -29,6 +29,18 @@ https://github.com/user-attachments/assets/ba72ea5a-f858-4815-b567-62d74c08181c
 ### [2. 자연어로 우리 서비스를 이용할 수 있는 챗봇 기능](./v2/README.md)
 >  V3 구현 예정
 
-### [3. 채팅 검열]
 
-![test2](https://github.com/user-attachments/assets/de16a2a2-55b8-4ecc-a9be-0c3e7b0389f5)
+### [익명 채팅 모더레이션 기능 (클린봇)](./moderation/README.md)
+<p>
+    <img alt="Static Badge" src="https://img.shields.io/badge/python-3.11-blue?style=flat&logo=python&logoColor=white">
+    <img alt="Static Badge" src="https://img.shields.io/badge/LangChain-1C3C3C?style=flat&logo=langchain&logoColor=white">
+    <img alt="Static Badge" src="https://img.shields.io/badge/langsmith-black?style=flat&logo=langsmith&logoColor=white">
+    <img alt="Static Badge" src="https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white">
+    <img alt="Static Badge" src="https://img.shields.io/badge/vLLM-blue?style=flat&logoColor=white">
+    <img alt="Static Badge" src="https://img.shields.io/badge/Hugging face-white?style=flat&logo=huggingface&logoColor=yellow">
+</p>
+
+![image](https://github.com/user-attachments/assets/2d294ae4-75b3-4983-a025-edd7a568bd8c)
+
+
+> 익명 사용자의 부적절한 채팅을 감지하여 차단합니다.
