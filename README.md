@@ -3,7 +3,7 @@
 https://github.com/user-attachments/assets/ba72ea5a-f858-4815-b567-62d74c08181c
 
 
-### [LLM을 사용한 공동 구매 주최글 자동 생성 기능](./v1/README.md)
+### [1. LLM을 사용한 공동 구매 주최글 자동 생성 기능](./v1/README.md)
 
 <!-- <p align="center">
   <img src="https://github.com/user-attachments/assets/55a7a067-ef7a-451f-b819-184092c19823" width="600">
@@ -26,7 +26,7 @@ https://github.com/user-attachments/assets/ba72ea5a-f858-4815-b567-62d74c08181c
 
 ---
 
-### [자연어로 우리 서비스를 이용할 수 있는 챗봇 기능](./v2/README.md)
+### [2. 자연어로 우리 서비스를 이용할 수 있는 챗봇 기능](./v2/README.md)
 >  V3 구현 예정
 
 
