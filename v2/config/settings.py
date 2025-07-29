@@ -168,8 +168,8 @@ class ServerSettings(BaseSettings):
     """서버 설정"""
 
     # FastAPI 설정
-    host: str = "0.0.0.0"
-    port: int = 8101
+    host: str = os.getenv("FASTAPI_HOST")
+    port: int = os.getenv("FASTAPI_PORT")
     reload: bool = True
     debug: bool = True
 

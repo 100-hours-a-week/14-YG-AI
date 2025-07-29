@@ -1,10 +1,7 @@
 # app.py (리팩토링된 버전)
 import logging
-from datetime import datetime
 
 from fastapi import FastAPI, Depends, HTTPException
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from api import include_all_routers

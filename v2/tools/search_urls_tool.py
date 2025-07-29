@@ -27,7 +27,7 @@ except Exception as e:
 
 def _build_search_query(query: str, site_domain: str) -> str:
     """검색어에 "가격"을 추가하여 상품 상세 페이지 검색 확률을 높입니다."""
-    return f'"{query} 가격" site:{site_domain}'
+    return f'"{query}" site:{site_domain}'
 
 
 # ❗️❗️❗️ 핵심 수정 함수 ❗️❗️❗️

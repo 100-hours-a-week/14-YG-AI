@@ -1,57 +1,58 @@
-# .env.example
-# 이 파일을 .env로 복사하고 실제 값들로 수정하세요
+# Google Cloud / Vertex AI
+GOOGLE_CLOUD_PROJECT=
+GOOGLE_CLOUD_LOCATION=us-central1
+GOOGLE_APPLICATION_CREDENTIALS=asd.json
 
-# ===== 환경 설정 =====
-ENVIRONMENT=development
+# Upstage Embedding
+UPSTAGE_API_KEY=up_
 
-# ===== 데이터베이스 설정 =====
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=jeongtaek
-DB_PASSWORD=postgres
-DB_DBNAME=test
+# PostgreSQL Database
+PG_HOST=
+PG_PORT=
+PG_USER=
+PG_PASSWORD=
+PG_DBNAME=
+PG_VECTOR_DIMENSION=4096 # model: embedding-qurey(4096)
 
-# ===== Google Cloud 설정 =====
-GOOGLE_PROJECT=deft-observer-456807-c5
-GOOGLE_LOCATION=us-central1
-GOOGLE_CREDENTIALS_PATH=deft-observer-456807-c5-e9dda0532301.json
-GOOGLE_MODEL_NAME=gemini-2.0-flash
-GOOGLE_TEMPERATURE=0.7
+# MySQL 설정
+MYSQL_DB_HOST=
+MYSQL_DB_PORT=
+MYSQL_DB_USER=
+MYSQL_DB_PASSWORD=
+MYSQL_DB_NAME=
+MYSQL_DB_CHARSET=
 
-# ===== Upstage API 설정 =====
-UPSTAGE_API_KEY=your_upstage_api_key_here
-UPSTAGE_BASE_URL=https://api.upstage.ai/v1
-UPSTAGE_EMBEDDING_MODEL=embedding-query
+# SSH 설정
+MYSQL_SSH_HOST=
+MYSQL_SSH_PORT=
+MYSQL_SSH_USER=
+MYSQL_SSH_PKEY_PATH=
 
-# ===== Langfuse 설정 =====
-LANGFUSE_ENABLED=true
-LANGFUSE_PUBLIC_KEY=your_langfuse_public_key
-LANGFUSE_SECRET_KEY=your_langfuse_secret_key
-LANGFUSE_HOST=https://cloud.langfuse.com
+# Langfuse 설정(클라우드 langfuse)
+LANGFUSE_SECRET_KEY=sk-
+LANGFUSE_PUBLIC_KEY=pk-
+LANGFUSE_HOST=https://us.cloud.langfuse.com
 
-# ===== 서버 설정 =====
-SERVER_HOST=0.0.0.0
-SERVER_PORT=8000
-SERVER_RELOAD=true
-SERVER_DEBUG=true
-SERVER_SESSION_TIMEOUT_MINUTES=60
-SERVER_MAX_SESSIONS=1000
-SERVER_MAX_MESSAGE_LENGTH=5000
-SERVER_MAX_HISTORY_PER_SESSION=100
+# 구글 검색 API
+GOOGLE_API_KEY=AIzaS
+GOOGLE_CSE_ID=
 
-# ===== 워크플로우 설정 =====
-WORKFLOW_DEFAULT_AGENT_TEMPERATURE=0.2
-WORKFLOW_SUPERVISOR_TEMPERATURE=0.1
-WORKFLOW_DEFAULT_SEARCH_LIMIT=5
-WORKFLOW_MAX_SEARCH_LIMIT=20
-WORKFLOW_APPROVAL_TIMEOUT_MINUTES=30
-WORKFLOW_MAX_PENDING_APPROVALS=100
+# Backend API Base URL (Fill in actual URL)
+API_BASE_URL=http://localhost:8080/api
 
-# ===== 로깅 설정 =====
+# FastAPI Server
+FASTAPI_HOST=0.0.0.0ß
+FASTAPI_PORT=8101
+DEBUG=False
+
+LANGSMITH_TRACING=false
+LANGSMITH_ENDPOINT=https://api.smith.langchain.com
+LANGSMITH_API_KEY=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
+LANGSMITH_PROJECT=Function1-test-colab
+
+# 로깅 설정
 LOG_LEVEL=INFO
-LOG_TO_FILE=false
-LOG_FILE_PATH=logs/chatbot.log
-LOG_MAX_BYTES=10485760
-LOG_BACKUP_COUNT=5
 LOG_LANGCHAIN_LOG_LEVEL=WARNING
 LOG_GOOGLE_LOG_LEVEL=WARNING
+
+NGROK_AUTH_TOKEN=30DpoGkyfGTyT4DSFyjgTPfvrtE_EN2gP3zyWvmpG6D5dKtZ
