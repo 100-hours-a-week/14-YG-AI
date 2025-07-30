@@ -10,7 +10,7 @@ import asyncio
 llm = get_desc_gen_client()
 desc_prompt_template = PromptTemplate.from_template(PRODUCT_DESC_GEN_PROMPT)
 title_prompt_template = PromptTemplate.from_template(PRODUCT_TITLE_GEN_PROMPT)
-
+ 
 
 async def product_post_gen(state: Dict) -> Dict:
     node_log("GENERATE POST")
