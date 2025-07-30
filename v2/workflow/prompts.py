@@ -158,7 +158,24 @@ Task: "https://www.coupang.com/vp/products/12345 해당 URL로 공구를 생성�
 Agent Action: `create_post(url="https://www.coupang.com/vp/products/12345")`
 ---
 
-이제 주어진 정보와 URL을 사용하여 `create_post` 도구를 호출하세요.
+이제 주어진 정보와 URL을 사용하여 `create_post` 도구를 호출하고 결과를 그대로 반환하세요.
+
+### 응답 형식:
+CREATE_PRODUCT_START
+{
+    "data": {
+            "upload_image_key": "tmp/f7ceaf0...",
+            "product_name": ...,
+            "product_lower_name": "...,
+            "total_price":...,
+            "count":...,
+            "summary":...,
+            "title":...,
+            "due_date": "2025-07-24T23:00",
+            "pickup_date": "2025-07-26T23:00"
+        }
+}
+CREATE_PRODUCT_END
 """
 
 

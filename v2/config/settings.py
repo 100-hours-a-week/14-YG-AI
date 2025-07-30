@@ -22,6 +22,11 @@ class PostgresSettings(BaseSettings):
     # 벡터 DB 관련
     vector_dimension: int = 4096
 
+    ssh_host: str = os.getenv("PG_SSH_HOST")
+    ssh_port: int = int(os.getenv("PG_SSH_PORT"))
+    ssh_user: str = os.getenv("PG_SSH_USER")
+    ssh_pkey_path: str = os.getenv("PG_SSH_PKEY_PATH")
+
     @property
     def connection_params(self) -> dict:
         """psycopg2 연결 파라미터 반환"""
@@ -31,6 +36,18 @@ class PostgresSettings(BaseSettings):
             "user": self.user,
             "password": self.password,
             "dbname": self.dbname,
+        }
+
+    @property
+    def ssh_params(self) -> dict:
+        """SSH 터널링 파라미터 반환"""
+        return {
+            "ssh_host": self.ssh_host,
+            "ssh_port": self.ssh_port,
+            "ssh_user": self.ssh_user,
+            "ssh_pkey_path": self.ssh_pkey_path,
+            "remote_host": self.host,
+            "remote_port": self.port,
         }
 
     class Config:
@@ -280,6 +297,9 @@ def get_pg_config() -> dict:
     """PostgreSQL 연결 설정 반환"""
     return settings.postgres.connection_params
 
+def get_pg_ssh_config() -> dict:
+    """MySQL SSH 터널링 설정 반환"""
+    return settings.postgres.ssh_params
 
 def get_mysql_config() -> dict:
     """MySQL 연결 설정 반환"""
@@ -289,6 +309,8 @@ def get_mysql_config() -> dict:
 def get_mysql_ssh_config() -> dict:
     """MySQL SSH 터널링 설정 반환"""
     return settings.mysql.ssh_params
+
+
 
 
 def get_google_cloud_config() -> dict:
@@ -317,6 +339,7 @@ if __name__ == "__main__":
     print(f"  버전: {settings.app_version}")
     print(f"  환경: {settings.environment}")
     print(f"  PG 호스트: {settings.postgres.host}")
+    print(f"  PG SSH 호스트: {settings.mysql.ssh_host}")
     print(f"  MySQL 호스트: {settings.mysql.db_host}")
     print(f"  MySQL SSH 호스트: {settings.mysql.ssh_host}")
     print(f"  서버 포트: {settings.server.port}")

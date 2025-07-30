@@ -1,7 +1,7 @@
 # local.py (수정된 버전)
 import logging
 
-from fastapi import FastAPI, Depends, HTTPException  # 쉼표 제거
+from fastapi import FastAPI, Depends, HTTPException, Response  # 쉼표 제거
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -30,14 +30,14 @@ app = FastAPI(
     debug=True,
 )
 
-# CORS 미들웨어
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# # CORS 미들웨어
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["localhost:3000"],
+#     allow_credentials=True,
+#     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+#     allow_headers=["*"],
+# )
 
 # 정적 파일 서빙
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -112,22 +112,35 @@ async def simple_health(supervisor_app=Depends(get_supervisor_app)):
     }
 
 
+@app.options("/chat/stream")
+async def options_chat_stream():
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "http://localhost:3000",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            # "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Headers": "Content-Type",
+        },
+    )
+
+
 # API 라우터 등록
 include_all_routers(app)
 
 # 비동기 환경 설정
-nest_asyncio.apply()
+# nest_asyncio.apply()
 
-# 기존 ngrok 터널이 있다면 종료
-try:
-    ngrok.kill()
-except:
-    pass
+# # 기존 ngrok 터널이 있다면 종료
+# try:
+#     ngrok.kill()
+# except:
+#     pass
 
-# ngrok 터널 생성 및 공개 URL 출력
-public_url = ngrok.connect(3100)
-print(f"✅ 스트리밍 채팅 웹 페이지가 준비되었습니다!")
-print(f"💬 채팅 API: {public_url}/chat/completions")
+# # ngrok 터널 생성 및 공개 URL 출력
+# public_url = ngrok.connect(3100)
+# print(f"✅ 스트리밍 채팅 웹 페이지가 준비되었습니다!")
+# print(f"💬 채팅 API: {public_url}/chat/completions")
 
 # FastAPI 서버 실행
 if __name__ == "__main__":
@@ -136,7 +149,7 @@ if __name__ == "__main__":
     uvicorn.run(
         app,  # 문자열로 모듈:변수 형태
         host="0.0.0.0",
-        port=3100,
+        port=8101,
         # reload=True,
-        log_level="debug",
+        log_level=None,
     )

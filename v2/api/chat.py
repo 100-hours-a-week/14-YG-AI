@@ -18,8 +18,8 @@ from utils import (
     format_sse_data,
     format_error_response,
     format_ai_response,
-    format_processing_message,
-    format_completion_message,
+    # format_processing_message,
+    # format_completion_message,
     truncate_content,
 )
 from core.session import (
@@ -93,7 +93,8 @@ async def process_message_stream(
         message: 사용자 메시지
         session_id: 세션 ID
         user_id: 사용자 ID (백엔드에서 검증됨) # 제거
-        user_name: 사용자 이름 (백엔드에서 검증됨)
+        # user_name: 사용자 이름 (백엔드에서 검증됨)
+        nickname: 닉네임
         supervisor_app: 워크플로우 앱
         access_token : 사용자 인증 토큰
 
@@ -145,7 +146,7 @@ async def process_message_stream(
             # ]
             if len(conversation_history) == 0 and user_name:  # 첫 대화 + 유저 정보 있음
                 system_message = AIMessage(
-                    content=f"💡 시스템: 현재 대화 중인 사용자는 {user_name}님 입니다. 대화에 참고해 주세요",
+                    content=f"💡 시스템: 현재 대화 중인 사용자는 `{user_name}`님 입니다. 대화에 참고해 주세요",
                     additional_kwargs={"agent": "system", "hidden": True},
                 )
                 # 대화 기록 맨 앞에 추가 (첫 번째 사용자 메시지 다음)
@@ -159,9 +160,9 @@ async def process_message_stream(
             add_message_to_session(session_id, user_message)
             conversation_history = get_session_data(session_id)
 
-            yield await format_sse_data(
-                format_processing_message("분석 중...", session_id)
-            )
+            # yield await format_sse_data(
+            #     format_processing_message("분석 중...", session_id)
+            # )
 
             with langfuse.start_as_current_span(
                 name="chat-message",
@@ -282,7 +283,7 @@ async def process_message_stream(
                                     )
                                 )
 
-            yield await format_sse_data(format_completion_message(session_id))
+            # yield await format_sse_data(format_completion_message(session_id))
 
             # LangFuse 플러시
             langfuse.flush()
@@ -347,9 +348,10 @@ async def chat_stream_endpoint(
     Returns:
         StreamingResponse: SSE 스트리밍 응답
     """
+    # print()
     print(access_token)
-    if not access_token:
-        raise HTTPException(status_code=401, detail="인증 토큰이 없습니다.")
+    # if not access_token:
+    #     raise HTTPException(status_code=401, detail="인증 토큰이 없습니다.")
 
     if not chat_message.message.strip():
         raise HTTPException(status_code=400, detail="메시지가 비어있습니다.")
@@ -384,5 +386,7 @@ async def chat_stream_endpoint(
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",  # Nginx 버퍼링 비활성화
+            "Access-Control-Allow-Origin": "http://localhost:3000",
+            "Content-Type": "text/event-stream",
         },
     )

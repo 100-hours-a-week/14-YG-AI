@@ -9,8 +9,8 @@ from utils import (
     format_sse_data,
     format_error_response,
     format_ai_response,
-    format_processing_message,
-    format_completion_message,
+    # format_processing_message,
+    # format_completion_message,
     format_structured_search_response,  # 추가
 )
 
@@ -22,7 +22,7 @@ async def create_chat_stream(
 
     try:
         # 처리 시작 메시지 전송
-        yield await format_sse_data(format_processing_message("분석 중..."))
+        # yield await format_sse_data(format_processing_message("분석 중..."))
 
         # 메시지 처리
         result = await message_processor.process_user_message(message, session_id)
@@ -55,7 +55,7 @@ async def create_chat_stream(
             yield await format_sse_data(formatted_response)
 
         # 완료 메시지 전송
-        yield await format_sse_data(format_completion_message())
+        # yield await format_sse_data(format_completion_message())
 
     except Exception as e:
         logger.error(f"❌ 스트리밍 처리 오류: {e}", exc_info=True)

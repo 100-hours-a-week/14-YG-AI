@@ -90,22 +90,22 @@ import os
 import ngrok
 import nest_asyncio
 
-# ngrok 설정 (개발 환경에서만 사용)
-ngrok_auth_token = os.getenv("NGROK_AUTH_TOKEN")
-ngrok.set_auth_token(ngrok_auth_token)
+# # ngrok 설정 (개발 환경에서만 사용)
+# ngrok_auth_token = os.getenv("NGROK_AUTH_TOKEN")
+# ngrok.set_auth_token(ngrok_auth_token)
 
 # 비동기 환경 설정
-nest_asyncio.apply()
+# nest_asyncio.apply()
 
-# 기존 ngrok 터널이 있다면 종료
-try:
-    ngrok.kill()
-except:
-    pass
+# # 기존 ngrok 터널이 있다면 종료
+# try:
+#     ngrok.kill()
+# except:
+#     pass
 
 # ngrok 터널 생성 및 공개 URL 출력
-public_url = ngrok.connect(settings.server.port)
-print(f"✅ 스트리밍 채팅 웹 페이지가 준비되었습니다!")
+# public_url = ngrok.connect(settings.server.port)
+# print(f"✅ 스트리밍 채팅 웹 페이지가 준비되었습니다!")
 
 if __name__ == "__main__":
     import uvicorn

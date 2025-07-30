@@ -1,6 +1,7 @@
 import asyncio
 import sys
 import os
+
 import psycopg2
 import re
 import json
@@ -55,8 +56,43 @@ def get_mysql_connection():
             user=settings.mysql.db_user,
             password=settings.mysql.db_password,
             database=settings.mysql.db_name,
-            charset=settings.mysql.db_charset,
+            # charset=settings.mysql.db_charset,
             # cursorclass=pymysql.cursors.DictCursor,
+        )
+
+        yield connection
+
+    finally:
+        if connection:
+            connection.close()
+        if tunnel:
+            tunnel.stop()
+
+
+@contextmanager
+def get_postgres_connection():
+    """SSH 터널을 통한 PostgreSQL 연결"""
+    tunnel = None
+    connection = None
+
+    try:
+        # SSH 터널 생성
+        tunnel = SSHTunnelForwarder(
+            (settings.postgres.ssh_host, settings.postgres.ssh_port),
+            ssh_username=settings.postgres.ssh_user,
+            ssh_pkey=settings.postgres.ssh_pkey_path,
+            remote_bind_address=(settings.postgres.host, settings.postgres.port),
+            local_bind_address=("127.0.0.1", 0),
+        )
+        tunnel.start()
+
+        # PostgreSQL 연결
+        connection = psycopg2.connect(
+            host="127.0.0.1",
+            port=tunnel.local_bind_port,
+            user=settings.postgres.user,
+            password=settings.postgres.password,
+            database=settings.postgres.dbname,
         )
 
         yield connection
@@ -742,13 +778,13 @@ def build_sql_query(conditions: Dict, result_id: Optional[List[int]] = None) -> 
     p.id, p.title, p.name, p.price, p.unit_price, p.total_amount, 
     p.left_amount, p.unit_amount, p.due_date, p.pickup_date, 
     p.post_status, p.participant_count, p.created_at,
-    img.url as thumbnail_url
+    img.image_key as thumbnail_url
     """
 
     # FROM 절 - LEFT JOIN으로 썸네일 이미지 가져오기, is_thumbnail = 1 인 이미지만 join
     from_clause = """
-    FROM post p
-    LEFT JOIN image img ON p.id = img.post_id AND img.is_thumbnail = 1
+    FROM group_buy p
+    LEFT JOIN image img ON p.id = img.group_buy_id AND img.thumbnail = 1
     """
 
     # WHERE 절
@@ -988,24 +1024,22 @@ async def search_post(query: str) -> str:
 
         if conditions["search_type"] == "vector":
             print("🔍 벡터 검색 수행")
-            pg_conn = psycopg2.connect(**settings.postgres.connection_params)
-            pg_cur = pg_conn.cursor()
+            # 새로운 SSH 터널 연결로 변경:
+            with get_postgres_connection() as pg_conn:
+                pg_cur = pg_conn.cursor()
 
-            embedding = None
+                embedding = None
+                search_text = " ".join(conditions["product_terms"])
+                embedding = await embed_text_async(search_text)
+                print(f"✅ 임베딩 완료 (차원: {len(embedding)})")
 
-            search_text = " ".join(conditions["product_terms"])
-            embedding = await embed_text_async(search_text)
-            print(f"✅ 임베딩 완료 (차원: {len(embedding)})")
-            vector_sql = build_vector_sql_query(conditions, embedding)
+                vector_sql = build_vector_sql_query(conditions, embedding)
+                pg_cur.execute(vector_sql)
 
-            pg_cur.execute(vector_sql)
+                results_id = pg_cur.fetchall()
+                results_id = [row[0] for row in results_id]  # ID만 추출
 
-            results_id = pg_cur.fetchall()
-            results_id = [row[0] for row in results_id]  # ID만 추출
-
-            pg_cur.close()
-            pg_conn.close()
-            print(f"\n✅ 백터DB 검색 완료: {len(results_id)}개")
+                print(f"\n✅ 백터DB 검색 완료: {len(results_id)}개")
 
             # pg의 유사도 검색 상위 공구들 검색
             sql = build_sql_query(conditions, results_id)
@@ -1076,6 +1110,19 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"연결 실패: {e}")
 
+    # __main__ 블록 내부에 추가
+    elif function_name == "test_pg_connection":
+        print("PostgreSQL SSH 연결 테스트...")
+        try:
+            with get_postgres_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("SELECT 1")
+                result = cur.fetchone()
+                print(f"PostgreSQL 연결 성공: {result}")
+        except Exception as e:
+            print(f"PostgreSQL 연결 실패: {e}")
+
+    # 그리고 help 메시지도 수정
     else:
         print(f"알 수 없는 함수: {function_name}")
-        print("사용 가능한 함수: get_user_id, test_connection")
+        print("사용 가능한 함수: get_user_id, test_connection, test_pg_connection")
