@@ -955,14 +955,14 @@ async def format_search_results_structured(
         "total_count": len(results),
         "results": results,
         # LLM 분석 정보 추가
-        "analysis": {
-            "filter_applied": analysis_info.get("filter_applied", False),
-            "confidence": analysis_info.get("confidence", 0),
-            "user_intent": analysis_info.get("user_intent", ""),
-            "reasoning": analysis_info.get("reasoning", ""),
-            "suggestions": analysis_info.get("suggestions", ""),
-            "original_count": analysis_info.get("original_count", len(results)),
-        },
+        # "analysis": {
+        #     "filter_applied": analysis_info.get("filter_applied", False),
+        #     "confidence": analysis_info.get("confidence", 0),
+        #     "user_intent": analysis_info.get("user_intent", ""),
+        #     "reasoning": analysis_info.get("reasoning", ""),
+        #     "suggestions": analysis_info.get("suggestions", ""),
+        #     "original_count": analysis_info.get("original_count", len(results)),
+        # },
     }
 
     # JSON 형태로 반환

@@ -27,7 +27,7 @@ except Exception as e:
 
 def _build_search_query(query: str, site_domain: str) -> str:
     """검색어에 "가격"을 추가하여 상품 상세 페이지 검색 확률을 높입니다."""
-    return f'"{query}" site:{site_domain}'
+    return f'"{query} 12개" site:{site_domain}'
 
 
 # ❗️❗️❗️ 핵심 수정 함수 ❗️❗️❗️
@@ -108,7 +108,7 @@ async def search_urls(query: str) -> str:
     """
     사용자가 원하는 상품명(query)을 입력받아, 쿠팡(Coupang)에서 실제 판매 중인 상품의 최신 정보(URL, 상품명, 가격)를 검색하여 JSON 리스트 형태로 반환합니다.
     새로운 공구를 생성하기 위해 '실시간 최신 상품 정보'가 필요할 때 **반드시 사용해야 하는 필수 도구**입니다.
-    예를 들어, 사용자가 '새우깡'을 원하면 query에 '새우깡'을 넣어 호출합니다.
+    예를 들어, 사용자가 '새우깡'을 원하면 query에 '새우깡 12개'을 넣어 호출합니다.
     """
     if search_wrapper is None:
         # 프론트엔드가 일반 텍스트로 처리할 수 있도록 단순 JSON 반환
